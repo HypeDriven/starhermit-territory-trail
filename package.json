@@ -1,0 +1,17 @@
+{
+  "name": "territory-trail",
+  "version": "1.0.0",
+  "description": "Territory Trail — realtime territory action browser game",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "test": "node test/run-tests.js",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "three": "^0.182.0"
+  }
+}

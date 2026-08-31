@@ -1,0 +1,74 @@
+[
+  {
+    "name": "ui-click",
+    "seconds": 1,
+    "prompt": "Single short soft wooden button click, dry and muted, no reverb, user interface press sound",
+    "event": "ui"
+  },
+  {
+    "name": "input-tick",
+    "seconds": 1,
+    "prompt": "Quick light mechanical tick, like a pen tap on a wooden desk, crisp and very short",
+    "event": "input"
+  },
+  {
+    "name": "invalid-buzz",
+    "seconds": 1,
+    "prompt": "Short low dull error buzz, soft rubbery denied-action sound, muted and not harsh",
+    "event": "invalid"
+  },
+  {
+    "name": "trail-step",
+    "seconds": 1,
+    "prompt": "Single soft footstep on packed dirt trail, short quiet scuff, dry outdoor recording",
+    "event": "move"
+  },
+  {
+    "name": "trail-step-alt",
+    "seconds": 1,
+    "prompt": "Single soft footstep on short grass, gentle muted scuff, slightly lighter than a dirt step",
+    "event": "move"
+  },
+  {
+    "name": "claim-burst",
+    "seconds": 2,
+    "prompt": "Cloth flag unfurling snap followed by a small bright rising chime, triumphant land-claim flourish",
+    "event": "claim"
+  },
+  {
+    "name": "trail-cut",
+    "seconds": 1,
+    "prompt": "Sharp snip of scissors cutting a taut string, quick slicing snap with a tiny twang",
+    "event": "cut"
+  },
+  {
+    "name": "eliminated-thud",
+    "seconds": 2,
+    "prompt": "Heavy soft body falling onto earth, low dull thud with a short dusty settle, game elimination",
+    "event": "eliminated"
+  },
+  {
+    "name": "warning-ping",
+    "seconds": 1,
+    "prompt": "Single urgent metallic warning ping, small struck triangle with fast decay, alert but quiet",
+    "event": "warning"
+  },
+  {
+    "name": "win-fanfare",
+    "seconds": 3,
+    "prompt": "Small brass fanfare flourish, three bright rising notes ending on a warm held chord, victory jingle",
+    "event": "win"
+  },
+  {
+    "name": "lose-fall",
+    "seconds": 2,
+    "prompt": "Short descending slide whistle ending in a soft sad thump, gentle comic defeat sound",
+    "event": "lose"
+  },
+  {
+    "name": "countdown-beep",
+    "seconds": 1,
+    "prompt": "Single clean electronic countdown beep, round sine tone with short smooth decay",
+    "event": "countdown"
+  }
+]

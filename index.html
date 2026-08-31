@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Territory Trail</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b1220; --panel: #131c30; --panel2: #1a2540; --text: #e8ecf3; --muted: #93a1ba;
+    --accent: #4ade80; --danger: #f87171; --focus: #7dd3fc;
+    --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px); --safe-right: env(safe-area-inset-right, 0px);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; background:var(--bg); color:var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow:hidden; }
+  body.large-text { font-size: 120%; }
+  body.high-contrast { --panel:#000; --panel2:#111; --text:#fff; --muted:#ddd; --accent:#00ff88; --focus:#ffe600; }
+  button, input, select { font: inherit; color: inherit; }
+  button { background:var(--panel2); border:1px solid #2c3a5c; border-radius:10px; padding:0.6em 1em;
+    cursor:pointer; min-height:44px; min-width:44px; }
+  button:hover { border-color:var(--focus); }
+  button:focus-visible, [tabindex]:focus-visible, select:focus-visible, input:focus-visible {
+    outline:3px solid var(--focus); outline-offset:2px; }
+  button.primary { background:var(--accent); color:#062312; font-weight:700; border:none; }
+  button.danger { border-color:var(--danger); color:var(--danger); }
+  button:disabled { opacity:0.45; cursor:not-allowed; }
+  h1,h2,h3 { margin:0.2em 0 0.4em; }
+  p { max-width: 70ch; }
+
+  #app { display:flex; flex-direction:column; height:100%; }
+  #statusbar { display:flex; align-items:center; gap:0.75em; padding:0.4em 0.8em;
+    padding-top: calc(0.4em + var(--safe-top)); padding-left: calc(0.8em + var(--safe-left));
+    padding-right: calc(0.8em + var(--safe-right));
+    background:var(--panel); font-size:0.92em; min-height:44px; }
+  #statusbar .spacer { flex:1; }
+  #main { flex:1; display:flex; min-height:0; position:relative; }
+  #rail-left, #rail-right { width:240px; background:var(--panel); padding:0.8em; overflow-y:auto; }
+  #rail-left { border-right:1px solid #22304e; }
+  #rail-right { border-left:1px solid #22304e; }
+  #playfield { flex:1; position:relative; min-width:0; }
+  #canvas-host { position:absolute; inset:0; }
+  #canvas-host canvas { display:block; width:100%; height:100%; touch-action:none; }
+
+  .screen { position:absolute; inset:0; display:none; flex-direction:column; align-items:center;
+    justify-content:center; gap:0.9em; background:rgba(8,12,22,0.92); padding:1em; z-index:20; overflow-y:auto; }
+  .screen.visible { display:flex; }
+  .card { background:var(--panel); border:1px solid #26355a; border-radius:14px; padding:1.2em;
+    max-width:640px; width:min(94vw, 640px); max-height:86vh; overflow-y:auto; }
+  .row { display:flex; gap:0.6em; flex-wrap:wrap; align-items:center; }
+  .col { display:flex; flex-direction:column; gap:0.6em; }
+  .grid-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:0.6em; width:100%; }
+  .grid-list button { text-align:left; }
+  .muted { color:var(--muted); }
+  .score-line { display:flex; justify-content:space-between; gap:1em; padding:0.25em 0; border-bottom:1px solid #22304e; }
+  .badge { display:inline-block; padding:0.1em 0.5em; border-radius:1em; background:var(--panel2); font-size:0.85em; }
+
+  #hud { position:absolute; inset:0; pointer-events:none; z-index:10; display:none; }
+  #hud.visible { display:block; }
+  #hud .hud-top { position:absolute; top:calc(0.5em + var(--safe-top)); left:50%; transform:translateX(-50%);
+    display:flex; gap:0.6em; align-items:center; }
+  #hud .hud-top > * { pointer-events:auto; }
+  #objective { background:rgba(10,16,30,0.8); padding:0.4em 1em; border-radius:2em; font-weight:600; }
+  #hud-actions { position:absolute; bottom:calc(0.75em + var(--safe-bottom)); left:50%; transform:translateX(-50%);
+    display:flex; gap:0.6em; }
+  #hud-actions button { pointer-events:auto; }
+  #danger-banner { position:absolute; top:calc(3.4em + var(--safe-top)); left:50%; transform:translateX(-50%);
+    background:var(--danger); color:#2b0707; font-weight:700; padding:0.3em 1em; border-radius:2em; display:none; }
+  #danger-banner.visible { display:block; }
+
+  #touch-pad { position:absolute; bottom:calc(4.6em + var(--safe-bottom)); right:calc(0.8em + var(--safe-right));
+    display:none; grid-template-columns:repeat(3, 52px); grid-template-rows:repeat(3, 52px); gap:6px; z-index:11; }
+  #touch-pad.visible { display:grid; }
+  #touch-pad button { padding:0; font-size:1.3em; background:rgba(26,37,64,0.75); }
+  body.left-handed #touch-pad { right:auto; left:calc(0.8em + var(--safe-left)); }
+
+  #sr-announcer { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  #board-mirror { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+
+  /* Compact / mobile: rails collapse into drawers */
+  #drawer-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:none; z-index:30; }
+  #drawer-backdrop.visible { display:block; }
+  @media (max-width: 1023px) {
+    #rail-left, #rail-right { position:fixed; top:0; bottom:0; z-index:31; width:min(80vw,300px);
+      transition: transform 0.2s ease; }
+    #rail-left { left:0; transform:translateX(-105%); }
+    #rail-right { right:0; transform:translateX(105%); }
+    #rail-left.open, #rail-right.open { transform:none; }
+    #rail-toggle-left, #rail-toggle-right { display:inline-flex !important; }
+  }
+  @media (min-width: 1024px) {
+    #rail-toggle-left, #rail-toggle-right { display:none !important; }
+  }
+  @media (orientation: landscape) and (max-height: 500px) {
+    #statusbar { min-height:36px; font-size:0.85em; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #rail-left, #rail-right { transition:none; }
+  }
+</style>
+<script type="importmap">
+  { "imports": { "three": "./node_modules/three/build/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <header id="statusbar" role="banner">
+    <button id="rail-toggle-left" aria-label="Open progress panel">☰</button>
+    <strong id="status-title">Territory Trail</strong>
+    <span id="status-mode" class="badge" aria-live="polite"></span>
+    <span class="spacer"></span>
+    <span id="status-clock" class="muted"></span>
+    <button id="btn-help" aria-label="Help">?</button>
+    <button id="btn-settings" aria-label="Settings">⚙</button>
+    <button id="rail-toggle-right" aria-label="Open status panel">≡</button>
+  </header>
+
+  <div id="main">
+    <aside id="rail-left" aria-label="Progress and objectives">
+      <h2 class="h3">Progress</h2>
+      <div id="rail-journey" class="col"></div>
+    </aside>
+
+    <div id="playfield">
+      <div id="canvas-host"></div>
+
+      <div id="hud" aria-hidden="false">
+        <div class="hud-top">
+          <div id="objective" role="status"></div>
+          <button id="btn-pause" aria-label="Pause game">⏸</button>
+        </div>
+        <div id="danger-banner" role="alert">Trail exposed — get home!</div>
+        <div id="hud-actions">
+          <button id="btn-undo" class="hidden" style="display:none">↩ Undo</button>
+          <button id="btn-camera">⌂ Camera</button>
+        </div>
+        <div id="touch-pad" aria-label="Touch direction controls">
+          <span></span><button data-dir="up" aria-label="Move up">▲</button><span></span>
+          <button data-dir="left" aria-label="Move left">◀</button><span></span><button data-dir="right" aria-label="Move right">▶</button>
+          <span></span><button data-dir="down" aria-label="Move down">▼</button><span></span>
+        </div>
+      </div>
+
+      <!-- Screens -->
+      <section id="screen-title" class="screen" aria-labelledby="title-h">
+        <h1 id="title-h" style="font-size:2.2em">Territory Trail</h1>
+        <p class="muted">Leave home. Draw a trail. Close the loop. Claim the land.</p>
+        <button id="btn-play" class="primary" style="font-size:1.2em; padding:0.7em 2.2em">Play</button>
+        <div class="row">
+          <button id="btn-daily">Daily Challenge</button>
+          <button id="btn-learn">Learn</button>
+          <button id="btn-hosted">Hosted Play</button>
+        </div>
+        <p class="muted" id="title-progress"></p>
+      </section>
+
+      <section id="screen-modes" class="screen" aria-labelledby="modes-h">
+        <div class="card col">
+          <h2 id="modes-h">Choose a mode</h2>
+          <div class="grid-list" role="list">
+            <button data-mode="journey" role="listitem"><strong>Journey</strong><br><span class="muted">40 authored stages</span></button>
+            <button data-mode="practice" role="listitem"><strong>Practice</strong><br><span class="muted">Unranked, undo allowed</span></button>
+            <button data-mode="daily" role="listitem"><strong>Daily</strong><br><span class="muted">One seed per UTC day</span></button>
+            <button data-mode="challenge" role="listitem"><strong>Challenge</strong><br><span class="muted">Constrained goals</span></button>
+            <button data-mode="learn" role="listitem"><strong>Learn</strong><br><span class="muted">Interactive lessons</span></button>
+            <button data-mode="hosted" role="listitem"><strong>Hosted</strong><br><span class="muted">Online room</span></button>
+          </div>
+          <button id="btn-modes-back">Back</button>
+        </div>
+      </section>
+
+      <section id="screen-setup" class="screen" aria-labelledby="setup-h">
+        <div class="card col">
+          <h2 id="setup-h">Setup</h2>
+          <div id="setup-body" class="col"></div>
+          <div class="row">
+            <button id="btn-setup-start" class="primary">Start</button>
+            <button id="btn-setup-back">Back</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="screen-countdown" class="screen" aria-label="Round starting">
+        <div id="countdown-num" style="font-size:5em; font-weight:800" role="status">3</div>
+      </section>
+
+      <section id="screen-pause" class="screen" aria-labelledby="pause-h">
+        <div class="card col">
+          <h2 id="pause-h">Paused</h2>
+          <button id="btn-resume" class="primary">Resume</button>
+          <div class="row">
+            <button id="btn-pause-settings">Settings</button>
+            <button id="btn-pause-help">Help</button>
+            <button id="btn-restart">Restart</button>
+            <button id="btn-leave" class="danger">Leave round</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="screen-results" class="screen" aria-labelledby="results-h">
+        <div class="card col">
+          <h2 id="results-h">Results</h2>
+          <div id="results-body" class="col"></div>
+          <div class="row">
+            <button id="btn-retry" class="primary">Retry</button>
+            <button id="btn-results-next">Next</button>
+            <button id="btn-results-home">Home</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="screen-settings" class="screen" aria-labelledby="settings-h">
+        <div class="card col">
+          <h2 id="settings-h">Settings</h2>
+          <div id="settings-body" class="col"></div>
+          <button id="btn-settings-close" class="primary">Done</button>
+        </div>
+      </section>
+
+      <section id="screen-help" class="screen" aria-labelledby="help-h">
+        <div class="card col">
+          <h2 id="help-h">How to play</h2>
+          <div id="help-body" class="col"></div>
+          <button id="btn-help-close" class="primary">Close</button>
+        </div>
+      </section>
+
+      <section id="screen-hosted" class="screen" aria-labelledby="hosted-h">
+        <div class="card col">
+          <h2 id="hosted-h">Hosted play</h2>
+          <div id="hosted-status" class="muted">Not connected.</div>
+          <div class="row">
+            <label>Room code <input id="hosted-room" type="text" maxlength="12" value="lobby" style="width:8em"></label>
+            <button id="btn-hosted-join" class="primary">Join</button>
+          </div>
+          <div id="hosted-roster" class="col"></div>
+          <button id="btn-hosted-back">Back</button>
+        </div>
+      </section>
+    </div>
+
+    <aside id="rail-right" aria-label="Score and status">
+      <h2 class="h3">Status</h2>
+      <div id="rail-status" class="col"></div>
+    </aside>
+  </div>
+</div>
+
+<div id="drawer-backdrop"></div>
+<div id="sr-announcer" aria-live="polite"></div>
+<div id="board-mirror" role="region" aria-label="Board summary" tabindex="0"></div>
+<noscript><p style="padding:2em">Territory Trail requires JavaScript.</p></noscript>
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

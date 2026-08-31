@@ -1,0 +1,3 @@
+name=Territory Trail
+launch=index.html
+server=server.js
