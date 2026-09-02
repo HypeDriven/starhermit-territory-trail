@@ -84,11 +84,17 @@
   #drawer-backdrop.visible { display:block; }
   @media (max-width: 1023px) {
     #rail-left, #rail-right { position:fixed; top:0; bottom:0; z-index:31; width:min(80vw,300px);
-      transition: transform 0.2s ease; }
+      visibility:hidden; transition: transform 0.2s ease, visibility 0.2s ease; }
     #rail-left { left:0; transform:translateX(-105%); }
     #rail-right { right:0; transform:translateX(105%); }
-    #rail-left.open, #rail-right.open { transform:none; }
+    #rail-left.open, #rail-right.open { transform:none; visibility:visible; }
     #rail-toggle-left, #rail-toggle-right { display:inline-flex !important; }
+  }
+  @media (max-width: 480px) {
+    #statusbar { gap:0.4em; padding-left:calc(0.4em + var(--safe-left));
+      padding-right:calc(0.4em + var(--safe-right)); }
+    #status-title { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #status-clock { display:none; }
   }
   @media (min-width: 1024px) {
     #rail-toggle-left, #rail-toggle-right { display:none !important; }
