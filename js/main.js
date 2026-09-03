@@ -6,7 +6,7 @@ import { Session, TICK_MS } from './session.js';
 import { Renderer } from './render.js';
 import { ui } from './ui.js';
 import * as audio from './audio.js';
-import * as platform from './platform.js';
+import * as platform from './platform.js?v=d149b156';
 import { STAGES, LESSONS, dailyChallenge, themeById, CONTENT_VERSION } from './content.js';
 import { PHASE, rankPlayers, legalDirections, makeEnvelope, dailySeed } from './rules.js';
 
