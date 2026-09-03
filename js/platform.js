@@ -76,6 +76,7 @@ export async function syncServerTime() {
     if (!res.ok) throw new Error('http-' + res.status);
     const body = await res.json();
     const t1 = Date.now();
+    if (!body || typeof body.now !== 'number' || !isFinite(body.now)) throw new Error('bad-time-payload');
     // Round-trip-adjusted offset.
     timeOffsetMs = body.now - (t0 + (t1 - t0) / 2);
     timeSynced = true;
