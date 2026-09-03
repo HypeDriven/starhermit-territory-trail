@@ -2,8 +2,8 @@
 
 // UI: DOM shell — screens, rails, settings, help, results, accessibility mirror.
 import { STAGES, PRACTICE_DIFFICULTIES, CHALLENGES, LESSONS } from './content.js';
-import { ACHIEVEMENTS } from './platform.js';
-import * as platform from './platform.js';
+import { ACHIEVEMENTS } from './platform.js?v=d149b156';
+import * as platform from './platform.js?v=d149b156';
 
 const $ = (id) => document.getElementById(id);
 
