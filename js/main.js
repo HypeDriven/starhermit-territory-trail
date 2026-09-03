@@ -57,9 +57,11 @@ function boot() {
 
   ui.init(app.settings, onAction);
   audio.init(app.settings);
-  platform.syncServerTime().then(updateDailyLabel);
-  platform.startPresence();
-  platform.track('start');
+  platform.syncServerTime().then(() => {
+    updateDailyLabel();
+    platform.startPresence();
+    platform.track('start');
+  });
 
   applyQuality();
   bindInput();

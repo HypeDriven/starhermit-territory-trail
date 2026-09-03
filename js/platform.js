@@ -62,8 +62,12 @@ function checksum(doc) {
 }
 
 // ---------------------------------------------------------------- server time
+// /api/v1/time is probed ONCE at startup; it is the only route the host
+// guarantees. Every other hosted feature returns a local no-op without
+// issuing a request when the probe failed.
 let timeOffsetMs = 0;
 let timeSynced = false;
+let hosted = false;
 
 export async function syncServerTime() {
   try {
@@ -75,20 +79,23 @@ export async function syncServerTime() {
     // Round-trip-adjusted offset.
     timeOffsetMs = body.now - (t0 + (t1 - t0) / 2);
     timeSynced = true;
+    hosted = true;
   } catch (e) {
-    timeOffsetMs = 0; timeSynced = false; // offline: local clock fallback
+    timeOffsetMs = 0; timeSynced = false; hosted = false; // offline: local clock fallback
   }
   return timeSynced;
 }
 
 export function serverNow() { return Date.now() + timeOffsetMs; }
 export function isTimeSynced() { return timeSynced; }
+export function isHosted() { return hosted; }
 
 // ---------------------------------------------------------------- telemetry
 // Anonymous funnel events only; consent-gated; random session id.
 const sessionId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : String(Math.random()).slice(2);
 
 export function track(eventName, detail) {
+  if (!hosted) return; // host exposes no telemetry route: never request it
   const settings = loadSettings();
   if (!settings.consentTelemetry) return;
   const allowed = ['start', 'tutorial-step', 'round-end', 'retry', 'settings-change', 'error'];
@@ -105,6 +112,7 @@ export function track(eventName, detail) {
 // ---------------------------------------------------------------- presence
 let presenceTimer = null;
 export function startPresence() {
+  if (!hosted) return; // host exposes no presence route: never request it
   stopPresence();
   presenceTimer = setInterval(() => {
     try { fetch('/api/v1/presence', { method: 'POST', keepalive: true }).catch(() => {}); } catch (e) {}
