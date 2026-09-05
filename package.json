@@ -6,6 +6,7 @@
   "main": "server.js",
   "scripts": {
     "test": "node test/run-tests.js",
+    "test:e2e": "node tests/e2e.mjs",
     "start": "node server.js"
   },
   "keywords": [],

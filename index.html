@@ -71,9 +71,10 @@
   #danger-banner.visible { display:block; }
 
   #touch-pad { position:absolute; bottom:calc(4.6em + var(--safe-bottom)); right:calc(0.8em + var(--safe-right));
-    display:none; grid-template-columns:repeat(3, 52px); grid-template-rows:repeat(3, 52px); gap:6px; z-index:11; }
+    display:none; grid-template-columns:repeat(3, 52px); grid-template-rows:repeat(3, 52px); gap:6px; z-index:11;
+    pointer-events:auto; }
   #touch-pad.visible { display:grid; }
-  #touch-pad button { padding:0; font-size:1.3em; background:rgba(26,37,64,0.75); }
+  #touch-pad button { padding:0; font-size:1.3em; background:rgba(26,37,64,0.75); pointer-events:auto; }
   body.left-handed #touch-pad { right:auto; left:calc(0.8em + var(--safe-left)); }
 
   #sr-announcer { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
