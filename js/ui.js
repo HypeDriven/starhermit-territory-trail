@@ -113,6 +113,8 @@ export const ui = {
     $('status-clock').textContent = clockText || '';
   },
 
+  setClock(text) { $('status-clock').textContent = text || ''; },
+
   setObjective(text) { $('objective').textContent = text; },
 
   setDanger(exposed) { $('danger-banner').classList.toggle('visible', !!exposed); },
@@ -309,7 +311,11 @@ export const ui = {
       const p = state.players[i];
       const div = document.createElement('div');
       div.className = 'score-line';
-      div.innerHTML = '<span>' + (p.id === localId ? '▶ ' : '') + p.name + (p.alive ? '' : ' ✝') + '</span><strong>' + (p.area + p.eliminations * 50) + '</strong>';
+      const name = document.createElement('span');
+      name.textContent = (p.id === localId ? '▶ ' : '') + p.name + (p.alive ? '' : ' ✝');
+      const score = document.createElement('strong');
+      score.textContent = String(p.area + p.eliminations * 50);
+      div.appendChild(name); div.appendChild(score);
       body.appendChild(div);
     }
 
@@ -342,8 +348,11 @@ export const ui = {
       for (const p of state.players) {
         const div = document.createElement('div');
         div.className = 'score-line';
-        const you = p.id === localId ? ' (you)' : '';
-        div.innerHTML = '<span>' + p.name + you + '</span><span>' + p.area + ' cells' + (p.alive ? '' : ' · out') + '</span>';
+        const name = document.createElement('span');
+        name.textContent = p.name + (p.id === localId ? ' (you)' : '');
+        const stat = document.createElement('span');
+        stat.textContent = p.area + ' cells' + (p.alive ? '' : ' · out');
+        div.appendChild(name); div.appendChild(stat);
         rs.appendChild(div);
       }
       const t = document.createElement('p');

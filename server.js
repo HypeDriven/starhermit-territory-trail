@@ -217,9 +217,16 @@ const server = http.createServer((req, res) => {
   }
 
   // Static files, confined to ROOT.
-  let file = pathname === '/' ? 'index.html' : decodeURIComponent(pathname.replace(/^\//, ''));
+  let file;
+  try {
+    file = pathname === '/' ? 'index.html' : decodeURIComponent(pathname.replace(/^\//, ''));
+  } catch (e) {
+    sendJson(res, 400, { error: 'bad-request' });
+    return;
+  }
+  if (file.split(/[\\/]/).some(part => part.startsWith('.') || ['data', 'node_modules', 'tests'].includes(part))) { sendJson(res, 403, { error: 'forbidden' }); return; }
   const full = path.normalize(path.join(ROOT, file));
-  if (!full.startsWith(ROOT)) { sendJson(res, 403, { error: 'forbidden' }); return; }
+  if (full !== ROOT && !full.startsWith(ROOT + path.sep)) { sendJson(res, 403, { error: 'forbidden' }); return; }
   fs.readFile(full, (err, data) => {
     if (err) { sendJson(res, 404, { error: 'not-found' }); return; }
     const ext = path.extname(full).toLowerCase();

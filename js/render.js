@@ -163,6 +163,7 @@ export class Renderer {
     this.scene.add(gridHelper);
 
     this.board = { base: base, gridHelper: gridHelper, width: w, height: h };
+    this.ownerCache = null; // force full recolor of the fresh instances
     this.fitCamera(w, h);
     this.lastStateDims = { w: w, h: h };
   }
@@ -271,7 +272,7 @@ export class Renderer {
 
     // Events → pooled FX + external audio handled by caller.
     for (const ev of snapshot.events || []) {
-      if (ev.kind === 'claim' && !this.reducedMotion) this.spawnClaimFx(state);
+      if (ev.kind === 'claim' && !this.reducedMotion) this.spawnClaimFx(state, ev);
     }
 
     // Advance FX.
@@ -300,9 +301,15 @@ export class Renderer {
     }
   }
 
-  spawnClaimFx(state) {
-    const li = state.players.findIndex((p) => p.trail.length === 0);
-    const i = Math.max(0, li);
+  spawnClaimFx(state, ev) {
+    // Identify the claiming player from the event; fall back to the first
+    // player with a fresh (empty) trail when the event carries no identity.
+    let i = -1;
+    if (ev) {
+      if (typeof ev.playerIndex === 'number') i = ev.playerIndex;
+      else if (typeof ev.playerId === 'string') i = state.players.findIndex((p) => p.id === ev.playerId);
+    }
+    if (i < 0 || i >= state.players.length) i = Math.max(0, state.players.findIndex((p) => p.trail.length === 0));
     const p = state.players[i];
     let fx = this.fxPool.pop();
     if (!fx) {

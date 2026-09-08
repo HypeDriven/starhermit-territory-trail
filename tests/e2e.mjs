@@ -268,9 +268,8 @@ async function runMobile(browser, name) {
   ok(`${name}: round started via touch tap`);
 
   // Real moves via touchscreen taps on the board canvas (the game's arcade
-  // tap-to-steer: tap left of the player to steer left). Note: the on-screen
-  // #touch-pad inherits pointer-events:none from #hud, so its buttons are
-  // dead to taps; canvas steering is the working mobile path.
+  // tap-to-steer: tap left of the player to steer left). The on-screen
+  // #touch-pad path is verified separately below.
   const before = await localPlayer(page);
   const box = await page.locator('#canvas-host canvas').boundingBox();
   for (const _ of [0, 1]) { // a couple of left-steering taps on the board

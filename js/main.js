@@ -176,11 +176,14 @@ function beginRound(config, defs, modeData) {
   });
 }
 
+let countdownToken = 0;
 function countdown(n, done) {
+  const token = ++countdownToken; // invalidate any still-pending countdown chain
   ui.show('countdown');
   const el = $('countdown-num');
   let left = n;
   const stepFn = () => {
+    if (token !== countdownToken) return; // a newer round superseded this one
     if (left === 0) { done(); return; }
     el.textContent = String(left);
     ui.announce(String(left));
@@ -282,6 +285,7 @@ function leaveRound() {
 }
 
 function goHome() {
+  ++countdownToken;
   if (app.session) { app.session.stop(); app.session = null; }
   setPhase('title');
   ui.setStatus('', '');
@@ -474,6 +478,7 @@ function hostedJoin(room) {
       ui.setHostedStatus('Room "' + room + '" — ' + msg.players.length + ' in lobby.', msg.players.map((p) => p.name + (p.id === H.playerId ? ' (you)' : '')));
     } else if (msg.type === 'start') {
       ui.setHostedStatus('Round starting…');
+      H.needBoard = true; // force a fresh board: player count/theme may differ from the last solo round
       setPhase('preparing');
       ui.setObjective('Hosted round: claim territory, cut rivals, survive.');
       ui.setStatus('Hosted — ' + room, '');
@@ -481,7 +486,8 @@ function hostedJoin(room) {
     } else if (msg.type === 'snapshot') {
       H.state = msg.state;
       if (app.phase === 'active' || app.phase === 'preparing') {
-        if (!app.renderer.board || app.renderer.lastStateDims.w !== msg.state.width) {
+        if (H.needBoard || !app.renderer.board || app.renderer.lastStateDims.w !== msg.state.width || app.renderer.lastStateDims.h !== msg.state.height) {
+          H.needBoard = false;
           app.renderer.buildBoard(msg.state, effectiveTheme('tide-pool'));
           app.renderer.resize();
         }
@@ -533,6 +539,9 @@ function frame(now) {
       if (li >= 0) {
         const p = snap.players[li];
         ui.setDanger(p.alive && p.trail.length > 0);
+        const remainTicks = Math.max(0, snap.maxTicks - snap.tick);
+        const remainSec = Math.ceil(remainTicks * TICK_MS / 1000);
+        ui.setClock(Math.floor(remainSec / 60) + ':' + String(remainSec % 60).padStart(2, '0') + ' left');
         ui.mirrorBoard('Tick ' + snap.tick + ' of ' + snap.maxTicks + '. You have ' + p.area +
           ' cells and ' + p.eliminations + ' eliminations. ' +
           (p.alive ? (p.trail.length > 0 ? 'Your trail is exposed with ' + p.trail.length + ' cells.' : 'You are safe inside your territory.') : 'You are eliminated.'));
@@ -544,6 +553,7 @@ function frame(now) {
     const evs = app.session.events; app.session.events = [];
     for (const ev of evs) {
       if (ev.kind === 'claim') { audio.play('claim'); if (app.mode === 'learn' && app.lessonStats) app.lessonStats.claims++; }
+      else if (ev.kind === 'cut') audio.play('cut');
       else if (ev.kind === 'eliminated') audio.play('eliminated');
       else if (ev.kind === 'ended') { /* handled by onEnd */ }
     }

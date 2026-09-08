@@ -10,8 +10,6 @@ export const TICK_MS = 1000 / TICK_RATE;
 export class Session {
   constructor(config, playerDefs, localPlayerId) {
     this.config = config;
-    this.state = createGame(config);
-    // createGame takes players via config; rebuild with explicit defs:
     this.state = createGame({ ...config, players: playerDefs });
     initHash(this.state);
     this.localPlayerId = localPlayerId;
@@ -72,15 +70,22 @@ export class Session {
       const beforeTrail = this.localPlayerIndex() >= 0 ? this.state.players[this.localPlayerIndex()].trail.length : 0;
       const beforeAlive = this.state.players.map((p) => p.alive);
       const beforeArea = this.localPlayerIndex() >= 0 ? this.state.players[this.localPlayerIndex()].area : 0;
+      const beforeElimCount = this.state.eliminatedOrder.length;
       step(this.state);
       const li = this.localPlayerIndex();
       if (li >= 0) {
         const lp = this.state.players[li];
         if (beforeTrail > 0 && lp.trail.length === 0 && lp.area > beforeArea) {
-          this.events.push({ kind: 'claim', area: lp.area - beforeArea });
+          this.events.push({ kind: 'claim', playerIndex: li, area: lp.area - beforeArea });
           if (this.allowUndo !== false) this.pushUndo();
         }
         if (!lp.alive && beforeAlive[li]) this.events.push({ kind: 'eliminated' });
+        for (let k = beforeElimCount; k < this.state.eliminatedOrder.length; k++) {
+          const e = this.state.eliminatedOrder[k];
+          if (e.by === this.localPlayerId && e.playerId !== this.localPlayerId) {
+            this.events.push({ kind: 'cut', playerId: e.playerId });
+          }
+        }
       }
       for (let i = 0; i < this.state.players.length; i++) {
         if (beforeAlive[i] && this.state.players[i].alive && i !== li) {
