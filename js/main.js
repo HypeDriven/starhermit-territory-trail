@@ -159,6 +159,7 @@ function playerDefs(botCount, names) {
 function beginRound(config, defs, modeData) {
   if (app.session) app.session.stop();
   app.modeData = modeData;
+  wasExposed = false;
   app.session = new Session(config, defs, 'p1');
   app.session.allowUndo = modeData.mode === 'practice';
   app.session.onEnd = onRoundEnd;
@@ -177,6 +178,7 @@ function beginRound(config, defs, modeData) {
 }
 
 let countdownToken = 0;
+let wasExposed = false; // local trail-exposed edge, for the warning ping
 function countdown(n, done) {
   const token = ++countdownToken; // invalidate any still-pending countdown chain
   ui.show('countdown');
@@ -385,6 +387,13 @@ function bindInput() {
     if ((e.key === 'c' || e.key === 'C') && app.phase === 'active') onAction('camera');
   });
 
+  // One-input confidence: every button press acknowledges with the ui clip.
+  // Touch-pad steer buttons already play their own input/move sounds.
+  document.addEventListener('click', (e) => {
+    const b = e.target && e.target.closest ? e.target.closest('button') : null;
+    if (b && !b.closest('#touch-pad')) audio.play('ui');
+  });
+
   // Swipe / pointer on canvas: tap = steer toward tapped cell; drag = direction.
   const el = app.renderer.renderer.domElement;
   let start = null;
@@ -538,7 +547,10 @@ function frame(now) {
       const li = app.session.localPlayerIndex();
       if (li >= 0) {
         const p = snap.players[li];
-        ui.setDanger(p.alive && p.trail.length > 0);
+        const exposed = p.alive && p.trail.length > 0;
+        if (exposed && !wasExposed) audio.play('warning');
+        wasExposed = exposed;
+        ui.setDanger(exposed);
         const remainTicks = Math.max(0, snap.maxTicks - snap.tick);
         const remainSec = Math.ceil(remainTicks * TICK_MS / 1000);
         ui.setClock(Math.floor(remainSec / 60) + ':' + String(remainSec % 60).padStart(2, '0') + ' left');
@@ -555,6 +567,7 @@ function frame(now) {
       if (ev.kind === 'claim') { audio.play('claim'); if (app.mode === 'learn' && app.lessonStats) app.lessonStats.claims++; }
       else if (ev.kind === 'cut') audio.play('cut');
       else if (ev.kind === 'eliminated') audio.play('eliminated');
+      else if (ev.kind === 'input') audio.play('move');
       else if (ev.kind === 'ended') { /* handled by onEnd */ }
     }
     if (!hidden) {

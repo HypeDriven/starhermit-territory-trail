@@ -9,6 +9,22 @@
 
 ## Resolved
 
+### 10. Three authored SFX events were never triggered
+
+- **File:** `js/main.js`
+- **Was:** the manifest declared `ui` (`ui-click.opus`), `move`
+  (`trail-step`/`trail-step-alt.opus`), and `warning` (`warning-ping.opus`)
+  clips, and `audio.play()` could render them, but no code path ever called
+  `play()` with those events — button presses, confirmed steering commands,
+  and becoming trail-exposed were silent despite the authored clips.
+- **Fixed:** a delegated click listener plays `ui` for every button except
+  the touch-pad (which already plays `input`/`move` via `sendDir`); the
+  session's confirmed `input` events now play `move` (footstep variants
+  rotate automatically); the per-tick danger check plays `warning` on the
+  rising edge of the local player's trail-exposed state (reset per round).
+- **Verification:** `npm test` 61/61, `npm run test:e2e` PASS (desktop +
+  mobile, no page errors), asset audit PASS.
+
 ### 1. On-screen touch-pad buttons were dead to touch/pointer input
 
 - **File:** `index.html:73` (`#touch-pad` rule), `index.html:76` (`#touch-pad button` rule)
