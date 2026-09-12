@@ -44,7 +44,7 @@ Score owned area and eliminations; server verifies geometric claims. Results sho
 - **Daily:** one shared seed and ruleset per UTC day, synchronized to platform time.
 - **Practice:** selectable difficulty, restart, undo where rules permit, and no effect on competitive rating.
 - **Challenge:** constrained goals such as move limits, speed targets, altered layouts, or restricted tools.
-- **Hosted play:** private invitations and appropriate public matching, with reconnect and authoritative results.
+- **Hosted play:** public quick-join rooms and host-created private rooms, with reconnect and host-authoritative results.
 
 ### Difficulty and content generation
 
@@ -185,32 +185,29 @@ No module may mutate rules state except through a validated command. Rendering c
 
 ### Packaging and launch
 - Ship a browser distribution with `starhermit.txt` at its root, `name=Territory Trail`, and `launch=index.html`. Keep source files, secrets, design documents, and source maps outside the uploaded distribution.
-- Read the game scope from the short-lived launch token rather than hard-coding a slug. Use same-origin `/api` and `/ws` routes when hosted. Refresh account tokens through the host shell; never persist access or launch tokens in local storage.
-- Synchronize countdowns and daily boundaries with `GET /api/v1/time` using round-trip-adjusted offset. Treat rate limits and structured `{"error":"..."}` responses as recoverable UI states.
+- Read the launch token from the `#game_token=` URL fragment (read once, then stripped; query forms are local-dev fallbacks only). Decode `sub` and `game_scope` from the JWT (no hard-coded slug). Send `Authorization: Bearer` on every REST call and re-mint the token every 45 min via `POST /api/v1/games/{slug}/launch-token`; never persist tokens in local storage.
+- `GET /api/v1/time` sync runs only against the game's own dev server; on-platform the daily challenge falls back to the local clock (labeled in the UI). Treat rate limits and structured `{"error":"..."}` responses as recoverable UI states.
 
 ### Identity, profile, presence, and preferences
-- Support guest practice locally, then offer account sign-in for durable progress. Use the profile display name and avatar only where identity is useful, honor profile privacy, and send throttled presence heartbeats while actively playing.
+- Support guest practice locally, then offer account sign-in for durable progress. Use the profile display name from `GET /api/v1/users/{sub}/profile` (nickname; "Player "+id8 fallback; never usernames, never `/api/v1/me`) where identity is useful — the status bar shows "Playing as … · cloud sync". Fabricated per-game presence/telemetry routes are never called on-platform (dev server only, consent-gated).
 - Store accessibility, audio, graphics tier, tutorial completion, camera preference, and rules options through per-game settings. Declare desktop action bindings and read player overrides; touch mappings remain responsive UI controls.
-- Cloud-save progression as a versioned, checksummed document. Resolve conflicts by preserving both snapshots and asking the player when neither is a strict descendant. Never place credentials or private chat in saves.
+- Cloud-save progression as a versioned, checksummed document in one zip+base64 slot at `GET`/`PUT /api/v1/me/cloud-saves/{slug}`; the remote doc wins on conflict, saves debounce ~2 s and flush on pagehide, and localStorage remains the offline cache. Never place credentials or private chat in saves.
 
 ### Discovery, activity, and social layer
-- Start and end launch activity so playtime is accurate. Surface entitlement or catalog state only in host-owned chrome; the game itself must remain playable without promotional interruption.
-- Provide a compact friends panel for score comparison and invitations where appropriate. Respect presence visibility and do not expose a hidden or private profile through game UI.
-- Use friend invitations and the game-invite inbox for private sessions. Text chat belongs in a collapsible, moderated panel with block/report hooks, unread state, a 10-message-per-minute-aware composer, and no chat over critical controls.
+- Hosted multiplayer uses StarHermit realtime rooms (host-routed): lobby via REST (create/open, quick-join, leave, result, reconnect via `/rooms/mine`), transport `ws(s)://<host>/ws/v1/realtime?roomId=&access_token=` with 16-byte sender-prefixed binary frames (8 KB cap, guests ≤30 msg/s). The first seat runs the authoritative simulation with the existing rules engine and broadcasts snapshots; other players steer by account id and empty seats are AI. The game's own `server.js` `/ws` protocol remains the local-dev transport.
+- Text chat belongs in a collapsible, moderated panel with block/report hooks, unread state, a 10-message-per-minute-aware composer, and no chat over critical controls. (Not yet wired.)
 - Offer voice rooms only as an explicit opt-in after joining a compatible conversation. Default muted, expose speaking/mute indicators, and provide leave/report controls. Core rules must never require voice.
 
 ### Achievements and leaderboards
-- Declare a small static achievement set: first completion, mechanic mastery, a sustained streak, a difficult content milestone, and an accessibility-neutral long-term goal. Keys are stable, lowercase identifiers; unlocks are idempotent.
-- Provide global and friends-filtered boards for the primary metric plus a fair daily/weekly board. Include ruleset, content version, seed, assists, and duration with every submission; reject impossible or stale-version scores.
-- Competitive outcomes, rating changes, and achievement unlocks are server-authoritative. Never accept a client-supplied winner, score, hidden state, or elapsed time as truth.
+- Declare a small static achievement set: first completion, mechanic mastery, a sustained streak, a difficult content milestone, and an accessibility-neutral long-term goal. Keys are stable, lowercase identifiers; unlocks are idempotent. Achievements stay local (server.js is a dev server, not a Jint game script) and travel inside the cloud-saved progress doc.
+- Personal bests (journey stages, daily) stay local and cloud-saved. The client never submits scores to a game leaderboard and reads no global board (none is declared for this title).
 
 ### Sessions and transport
-- Create Realtime Rooms for lobbies, invitations, quick join, AI seats where valid, seat assignment, start, backfill policy, and results. Bind the room to an authoritative scripted session for rules and achievement delivery.
-- Send high-frequency input/state frames over the realtime WebSocket. Use compact binary gameplay frames and JSON control frames only for lifecycle events. Configure tick rate from actual simulation needs, apply sequence numbers, input acknowledgements, interpolation, bounded prediction, and reconnect snapshots.
-- Use the opaque peer relay only for non-authoritative ephemeral data that benefits from direct fan-out, such as cursors or drawing strokes; never use relay packets as the source of truth for score, collision, roles, or inventory.
+- Realtime Rooms provide lobbies, quick join, AI seats, seat assignment, start, and results; the room host is the authority and reports via `POST /rooms/{id}/result`.
+- Send high-frequency input/state frames over the realtime WebSocket as compact binary JSON gameplay frames (8 KB cap); roster/lobby are REST + roster pushes. Late joiners receive a start+snapshot resume and spectate until the next round.
 
 ### Publishing and operations
-- Keep the authoritative script inside the distribution and declare it with `server=server.js`. Choose a digest-pinned container only if profiling proves the sandbox unsuitable; no initial design here requires one.
+- `server.js` ships as the local dev server only; it is a plain Node server, not a Jint game script, so no script-owned achievements or leaderboards are declared.
 - Define control defaults, achievement metadata, and versioned settings before release. Publish immutable build assets, verify the launch path, maintain migration tests for saves, and expose no secret configuration to the client.
 - Capture anonymous funnel events only for start, tutorial step, round end, retry, settings change, and error category. Avoid raw text, precise personal data, and cross-title tracking.
 

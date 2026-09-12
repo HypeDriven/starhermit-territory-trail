@@ -46,6 +46,10 @@ export const ui = {
     $('btn-camera').addEventListener('click', () => onAction('camera'));
     $('btn-hosted-join').addEventListener('click', () => onAction('hosted-join', $('hosted-room').value.trim() || 'lobby'));
     $('btn-hosted-back').addEventListener('click', () => onAction('home'));
+    $('btn-hosted-quickjoin').addEventListener('click', () => onAction('hosted-quickjoin'));
+    $('btn-hosted-create').addEventListener('click', () => onAction('hosted-create'));
+    $('btn-hosted-start').addEventListener('click', () => onAction('hosted-start'));
+    $('btn-hosted-leave').addEventListener('click', () => onAction('hosted-leave'));
 
     document.querySelectorAll('#touch-pad button[data-dir]').forEach((b) => {
       b.addEventListener('click', () => onAction('dir', b.dataset.dir));
@@ -111,6 +115,13 @@ export const ui = {
   setStatus(mode, clockText) {
     $('status-mode').textContent = mode || '';
     $('status-clock').textContent = clockText || '';
+  },
+
+  setPlayerStatus(text) {
+    const el = $('status-player');
+    if (!el) return;
+    el.textContent = text || '';
+    el.style.display = text ? '' : 'none';
   },
 
   setClock(text) { $('status-clock').textContent = text || ''; },
@@ -391,5 +402,23 @@ export const ui = {
         r.appendChild(div);
       }
     }
+  },
+
+  // Which hosted-play chrome applies: platform rooms (launch token) or the
+  // game's own dev server (local). Neither → honest unavailable note.
+  setHostedMode(opts) {
+    $('hosted-rooms-ui').style.display = opts.rooms ? '' : 'none';
+    $('hosted-dev-ui').style.display = !opts.rooms && opts.dev ? '' : 'none';
+    $('hosted-offline-note').style.display = !opts.rooms && !opts.dev ? '' : 'none';
+    this.setHostedStartVisible(false, false);
+    this.setHostedStatus(opts.rooms
+      ? 'Quick join an open room, or create one and other players can quick-join it.'
+      : (opts.dev ? 'Not connected.' : 'Hosted play is unavailable on this build.'));
+  },
+
+  // In a room: host sees Start round + Leave; a guest sees Leave only.
+  setHostedStartVisible(v, isHost) {
+    $('btn-hosted-start').style.display = v && isHost ? '' : 'none';
+    $('btn-hosted-leave').style.display = v ? '' : 'none';
   },
 };

@@ -7,6 +7,7 @@ import { Renderer } from './render.js';
 import { ui } from './ui.js';
 import * as audio from './audio.js';
 import * as platform from './platform.js?v=d149b156';
+import { RoomsClient } from './net.js?v=d149b156';
 import { STAGES, LESSONS, dailyChallenge, themeById, CONTENT_VERSION } from './content.js';
 import { PHASE, rankPlayers, legalDirections, makeEnvelope, dailySeed } from './rules.js';
 
@@ -28,7 +29,7 @@ const app = {
   mode: null,
   modeData: null,
   streak: 0,
-  hosted: null, // { ws, room, playerId, state }
+  hosted: null, // { mode: 'rooms'|'dev', client?, ws?, room, playerId, state }
   lastTickApplied: -1,
   pausedByHidden: false,
 };
@@ -44,6 +45,22 @@ function effectiveTheme(themeId) {
 
 // ------------------------------------------------------------------ boot
 function boot() {
+  // Platform handshake runs on every boot path (even the no-WebGL fallback):
+  // profile nickname + remote-preferred cloud save when a launch token was read.
+  platform.onSyncStatus(() => ui.setPlayerStatus(platform.accountLine()));
+  platform.initHosted().then((remoteApplied) => {
+    if (remoteApplied) {
+      app.progress = platform.loadProgress();
+      ui.updateRails(null, null, app.progress);
+      $('title-progress').textContent = progressSummary();
+    }
+    updateDailyLabel();
+    ui.setPlayerStatus(platform.accountLine());
+  });
+  platform.syncServerTime(); // dev-server time probe; no-op when platform-hosted
+  platform.startPresence();
+  platform.track('start');
+
   const host = $('canvas-host');
   app.renderer = new Renderer(host);
   if (app.renderer.failed) {
@@ -57,11 +74,6 @@ function boot() {
 
   ui.init(app.settings, onAction);
   audio.init(app.settings);
-  platform.syncServerTime().then(() => {
-    updateDailyLabel();
-    platform.startPresence();
-    platform.track('start');
-  });
 
   applyQuality();
   bindInput();
@@ -108,7 +120,12 @@ function onAction(action, payload) {
       break;
     case 'mode':
       if (payload === 'daily') { startDaily(); break; }
-      if (payload === 'hosted') { setPhase('mode-select'); ui.show('hosted'); break; }
+      if (payload === 'hosted') {
+        setPhase('mode-select');
+        ui.setHostedMode({ rooms: platform.isHosted(), dev: !platform.isHosted() && platform.isTimeSynced() });
+        ui.show('hosted');
+        break;
+      }
       setPhase('mode-select');
       ui.buildSetup(payload, { progress: app.progress });
       app.mode = payload;
@@ -141,6 +158,16 @@ function onAction(action, payload) {
       break;
     case 'camera': app.renderer.resize(); ui.announce('Camera reset.'); break;
     case 'hosted-join': hostedJoin(payload); break;
+    case 'hosted-quickjoin': roomsJoin(false); break;
+    case 'hosted-create': roomsJoin(true); break;
+    case 'hosted-start':
+      if (app.hosted && app.hosted.mode === 'rooms' && app.hosted.client) app.hosted.client.startRound();
+      break;
+    case 'hosted-leave':
+      hostedLeave();
+      ui.setHostedStartVisible(false, false);
+      ui.setHostedStatus(platform.isHosted() ? 'Left the room.' : 'Not connected.');
+      break;
     case 'overlay-closed': break;
     case 'settings-changed':
       applyQuality();
@@ -151,7 +178,7 @@ function onAction(action, payload) {
 
 // ------------------------------------------------------------------ modes
 function playerDefs(botCount, names) {
-  const defs = [{ id: 'p1', name: 'You', isBot: false }];
+  const defs = [{ id: 'p1', name: platform.getDisplayName() || 'You', isBot: false }];
   for (let i = 0; i < botCount; i++) defs.push({ id: 'b' + (i + 1), name: (names && names[i]) || ('Rival ' + (i + 1)), isBot: true });
   return defs;
 }
@@ -289,6 +316,7 @@ function leaveRound() {
 function goHome() {
   ++countdownToken;
   if (app.session) { app.session.stop(); app.session = null; }
+  if (app.hosted) hostedLeave(); // leaving from the lobby/results drops the room seat
   setPhase('title');
   ui.setStatus('', '');
   ui.setDanger(false);
@@ -357,8 +385,19 @@ function onRoundEnd(state) {
 
 // ------------------------------------------------------------------ input
 function sendDir(dir) {
-  if (app.hosted && app.hosted.ws && app.hosted.ws.readyState === 1) {
-    app.hosted.ws.send(JSON.stringify({ type: 'dir', dir: dir, cmdId: 'c' + (++app.hosted.cmdCounter) }));
+  const H = app.hosted;
+  if (H && H.mode === 'rooms') {
+    if (H.client.isHost) {
+      const res = H.client.hostSendDir(dir, 'c' + (++H.cmdCounter));
+      audio.play(res.ok ? 'input' : 'invalid');
+      if (!res.ok) ui.announce('Cannot move ' + dir + ': ' + res.reason);
+      return;
+    }
+    if (H.client.guestSendDir(dir, 'c' + (++H.cmdCounter))) audio.play('input');
+    return;
+  }
+  if (H && H.ws && H.ws.readyState === 1) {
+    H.ws.send(JSON.stringify({ type: 'dir', dir: dir, cmdId: 'c' + (++H.cmdCounter) }));
     audio.play('input');
     return;
   }
@@ -464,69 +503,108 @@ function onVisibility() {
 }
 
 // ------------------------------------------------------------------ hosted play
+// Two transports, one message router (hostedMessage):
+// - rooms: StarHermit realtime rooms (host-routed) — platform-hosted only.
+// - dev:   the game's own server.js /ws protocol — local dev only.
 function hostedJoin(room) {
+  if (platform.isHosted()) { roomsJoin(false); return; } // safety: rooms on-platform
   if (app.hosted) hostedLeave();
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const url = proto + '//' + location.host + '/ws?room=' + encodeURIComponent(room);
   let ws;
   try { ws = new WebSocket(url); } catch (e) { ui.setHostedStatus('Cannot open WebSocket: ' + e.message); return; }
-  app.hosted = { ws: ws, room: room, playerId: null, cmdCounter: 0, state: null, alive: false };
+  app.hosted = { mode: 'dev', ws: ws, room: room, playerId: null, cmdCounter: 0, state: null, alive: false };
   ui.setHostedStatus('Connecting to room "' + room + '"…');
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({ type: 'join', name: 'You' }));
+    ws.send(JSON.stringify({ type: 'join', name: platform.getDisplayName() || 'You' }));
   };
   ws.onmessage = (e) => {
     let msg;
     try { msg = JSON.parse(e.data); } catch (err) { return; }
-    const H = app.hosted;
-    if (msg.type === 'welcome') {
-      H.playerId = msg.playerId;
-      ui.setHostedStatus('Joined room "' + room + '" as ' + msg.playerId + '. Waiting for players…');
-    } else if (msg.type === 'roster') {
-      ui.setHostedStatus('Room "' + room + '" — ' + msg.players.length + ' in lobby.', msg.players.map((p) => p.name + (p.id === H.playerId ? ' (you)' : '')));
-    } else if (msg.type === 'start') {
-      ui.setHostedStatus('Round starting…');
-      H.needBoard = true; // force a fresh board: player count/theme may differ from the last solo round
-      setPhase('preparing');
-      ui.setObjective('Hosted round: claim territory, cut rivals, survive.');
-      ui.setStatus('Hosted — ' + room, '');
-      countdown(3, () => { setPhase('active'); ui.showHudOnly(); });
-    } else if (msg.type === 'snapshot') {
-      H.state = msg.state;
-      if (app.phase === 'active' || app.phase === 'preparing') {
-        if (H.needBoard || !app.renderer.board || app.renderer.lastStateDims.w !== msg.state.width || app.renderer.lastStateDims.h !== msg.state.height) {
-          H.needBoard = false;
-          app.renderer.buildBoard(msg.state, effectiveTheme('tide-pool'));
-          app.renderer.resize();
-        }
-        app.renderer.update({ state: msg.state, events: msg.events || [] }, 1);
-        ui.updateRails(msg.state, H.playerId, app.progress);
-        const me = msg.state.players.find((p) => p.id === H.playerId);
-        ui.setDanger(me && me.trail.length > 0);
-      }
-    } else if (msg.type === 'ack') {
-      if (!msg.ok) { ui.announce('Move rejected: ' + msg.reason); audio.play('invalid'); }
-    } else if (msg.type === 'end') {
-      setPhase('results');
-      ui.showResults(msg.state, H.playerId, { rank: msg.rank, unlocked: [], progressText: 'Hosted result verified by the server. Reason: ' + msg.state.reason + '.' });
-      audio.play(msg.state.winner === H.playerId ? 'win' : 'lose');
-      hostedLeave();
-    } else if (msg.type === 'error') {
-      ui.setHostedStatus('Error: ' + msg.message);
-    }
+    hostedMessage(msg);
   };
   ws.onclose = () => {
-    if (app.hosted && app.hosted.ws === ws) {
-      ui.setHostedStatus('Disconnected.');
-      if (app.phase === 'active') { pauseGame(); ui.setStatus('Hosted — reconnecting', ''); }
+    if (app.hosted && app.hosted.mode === 'dev' && app.hosted.ws === ws) {
+      hostedMessage({ type: 'closed' });
     }
   };
   ws.onerror = () => ui.setHostedStatus('Connection failed. Is the server running?');
 }
 
+async function roomsJoin(asHost) {
+  if (!platform.isHosted()) { hostedJoin('lobby'); return; }
+  if (app.hosted) hostedLeave();
+  const client = new RoomsClient(platform);
+  app.hosted = { mode: 'rooms', client: client, room: null, playerId: null, cmdCounter: 0, state: null, alive: false };
+  client.on('status', (m) => ui.setHostedStatus(m.text));
+  client.on('welcome', (m) => hostedMessage({ type: 'welcome', playerId: m.playerId }));
+  client.on('roster', (m) => hostedMessage({ type: 'roster', players: m.players }));
+  client.on('start', (m) => { ui.setHostedStartVisible(false, client.isHost); hostedMessage({ type: 'start', seed: m.seed }); });
+  client.on('snapshot', (m) => hostedMessage({ type: 'snapshot', state: m.state, events: m.events || [] }));
+  client.on('ack', (m) => hostedMessage({ type: 'ack', cmdId: m.cmdId, ok: m.ok, reason: m.reason, playerId: m.playerId }));
+  client.on('end', (m) => hostedMessage({ type: 'end', state: m.state, rank: m.rank }));
+  client.on('error', (m) => hostedMessage({ type: 'error', message: m.message }));
+  client.on('closed', () => hostedMessage({ type: 'closed' }));
+  try {
+    const ok = asHost ? await client.createAndOpen() : await client.quickJoin();
+    if (!ok || !app.hosted || app.hosted.client !== client) { app.hosted = null; return; } // honest note already shown
+    app.hosted.room = client.roomId;
+    ui.setHostedStartVisible(true, client.isHost);
+  } catch (e) {
+    if (app.hosted && app.hosted.client === client) app.hosted = null;
+    ui.setHostedStatus('Hosted rooms are unavailable (' + e.message + '). Try again in a moment.');
+  }
+}
+
+function hostedMessage(msg) {
+  const H = app.hosted;
+  if (!H) return;
+  if (msg.type === 'welcome') {
+    H.playerId = msg.playerId;
+    ui.setHostedStatus('Joined' + (H.room ? ' room "' + H.room + '"' : '') + ' as ' + (platform.getDisplayName() || msg.playerId) + '. Waiting for players…');
+  } else if (msg.type === 'roster') {
+    ui.setHostedStatus((H.room ? 'Room "' + H.room + '" — ' : 'Room — ') + msg.players.length + ' in lobby.', msg.players.map((p) => p.name + (p.id === H.playerId ? ' (you)' : '')));
+  } else if (msg.type === 'start') {
+    ui.setHostedStatus('Round starting…');
+    H.needBoard = true; // force a fresh board: player count/theme may differ from the last solo round
+    setPhase('preparing');
+    ui.setObjective('Hosted round: claim territory, cut rivals, survive.');
+    ui.setStatus('Hosted — ' + (H.room || 'room'), '');
+    countdown(3, () => { setPhase('active'); ui.showHudOnly(); });
+  } else if (msg.type === 'snapshot') {
+    H.state = msg.state;
+    if (app.phase === 'active' || app.phase === 'preparing') {
+      if (H.needBoard || !app.renderer.board || app.renderer.lastStateDims.w !== msg.state.width || app.renderer.lastStateDims.h !== msg.state.height) {
+        H.needBoard = false;
+        app.renderer.buildBoard(msg.state, effectiveTheme('tide-pool'));
+        app.renderer.resize();
+      }
+      app.renderer.update({ state: msg.state, events: msg.events || [] }, 1);
+      ui.updateRails(msg.state, H.playerId, app.progress);
+      const me = msg.state.players.find((p) => p.id === H.playerId);
+      ui.setDanger(me && me.trail.length > 0);
+    }
+  } else if (msg.type === 'ack') {
+    if (msg.playerId && msg.playerId !== H.playerId) return; // another guest's ack
+    if (!msg.ok) { ui.announce('Move rejected: ' + msg.reason); audio.play('invalid'); }
+  } else if (msg.type === 'end') {
+    setPhase('results');
+    ui.showResults(msg.state, H.playerId, { rank: msg.rank, unlocked: [], progressText: 'Hosted result reported by the room host. Reason: ' + msg.state.reason + '.' });
+    audio.play(msg.state.winner === H.playerId ? 'win' : 'lose');
+    hostedLeave();
+  } else if (msg.type === 'error') {
+    ui.setHostedStatus(typeof msg.message === 'string' ? msg.message : 'Room error.');
+  } else if (msg.type === 'closed') {
+    ui.setHostedStatus('Disconnected.');
+    if (app.phase === 'active') { pauseGame(); ui.setStatus('Hosted — reconnecting', ''); }
+  }
+}
+
 function hostedLeave() {
-  if (app.hosted && app.hosted.ws) {
+  if (app.hosted && app.hosted.mode === 'rooms' && app.hosted.client) {
+    app.hosted.client.leave();
+  } else if (app.hosted && app.hosted.ws) {
     try { app.hosted.ws.close(); } catch (e) {}
   }
   app.hosted = null;

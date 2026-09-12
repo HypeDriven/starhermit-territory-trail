@@ -117,6 +117,7 @@
     <button id="rail-toggle-left" aria-label="Open progress panel">☰</button>
     <strong id="status-title">Territory Trail</strong>
     <span id="status-mode" class="badge" aria-live="polite"></span>
+    <span id="status-player" class="badge" style="display:none"></span>
     <span class="spacer"></span>
     <span id="status-clock" class="muted"></span>
     <button id="btn-help" aria-label="Help">?</button>
@@ -238,10 +239,29 @@
         <div class="card col">
           <h2 id="hosted-h">Hosted play</h2>
           <div id="hosted-status" class="muted">Not connected.</div>
-          <div class="row">
-            <label>Room code <input id="hosted-room" type="text" maxlength="12" value="lobby" style="width:8em"></label>
-            <button id="btn-hosted-join" class="primary">Join</button>
+          <div id="hosted-rooms-ui" class="col" style="display:none">
+            <div class="row">
+              <button id="btn-hosted-quickjoin" class="primary">Quick join</button>
+              <button id="btn-hosted-create">Create room</button>
+            </div>
+            <div class="row">
+              <button id="btn-hosted-start" class="primary" style="display:none">Start round</button>
+              <button id="btn-hosted-leave" style="display:none">Leave room</button>
+            </div>
+            <p class="muted">Online rooms run on StarHermit realtime: the first seat simulates the round,
+              everyone else steers their marker. Empty seats are filled by rivals. Late joiners spectate
+              the live round and play the next one.</p>
           </div>
+          <div id="hosted-dev-ui" class="col">
+            <div class="row">
+              <label>Room code <input id="hosted-room" type="text" maxlength="12" value="lobby" style="width:8em"></label>
+              <button id="btn-hosted-join" class="primary">Join</button>
+            </div>
+            <p class="muted">Local dev server protocol (server.js): a short lobby window fills empty
+              seats with AI and starts the round automatically.</p>
+          </div>
+          <p id="hosted-offline-note" class="muted" style="display:none">Hosted play needs a StarHermit
+            launch (online) or the local dev server (<code>npm start</code>, then the room-code join above).</p>
           <div id="hosted-roster" class="col"></div>
           <button id="btn-hosted-back">Back</button>
         </div>
