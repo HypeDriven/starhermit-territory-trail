@@ -59,15 +59,18 @@
 
   #hud { position:absolute; inset:0; pointer-events:none; z-index:10; display:none; }
   #hud.visible { display:block; }
-  #hud .hud-top { position:absolute; top:calc(0.5em + var(--safe-top)); left:50%; transform:translateX(-50%);
-    display:flex; gap:0.6em; align-items:center; }
+  /* Top stack in normal flow: objective row (with pause in its own column),
+     then the danger banner beneath it — nothing paints over anything. */
+  #hud .hud-stack { position:absolute; top:calc(0.5em + var(--safe-top)); left:calc(0.5em + var(--safe-left)); right:calc(0.5em + var(--safe-right));
+    display:flex; flex-direction:column; align-items:center; gap:0.4em; }
+  #hud .hud-top { display:flex; gap:0.6em; align-items:center; max-width:100%; }
   #hud .hud-top > * { pointer-events:auto; }
-  #objective { background:rgba(10,16,30,0.8); padding:0.4em 1em; border-radius:2em; font-weight:600; }
+  #objective { background:rgba(10,16,30,0.8); padding:0.4em 1em; border-radius:2em; font-weight:600; min-width:0; }
+  #btn-pause { flex:0 0 auto; }
   #hud-actions { position:absolute; bottom:calc(0.75em + var(--safe-bottom)); left:50%; transform:translateX(-50%);
     display:flex; gap:0.6em; }
   #hud-actions button { pointer-events:auto; }
-  #danger-banner { position:absolute; top:calc(3.4em + var(--safe-top)); left:50%; transform:translateX(-50%);
-    background:var(--danger); color:#2b0707; font-weight:700; padding:0.3em 1em; border-radius:2em; display:none; }
+  #danger-banner { background:var(--danger); color:#2b0707; font-weight:700; padding:0.3em 1em; border-radius:2em; display:none; }
   #danger-banner.visible { display:block; }
 
   #touch-pad { position:absolute; bottom:calc(4.6em + var(--safe-bottom)); right:calc(0.8em + var(--safe-right));
@@ -135,11 +138,13 @@
       <div id="canvas-host"></div>
 
       <div id="hud" aria-hidden="false">
-        <div class="hud-top">
-          <div id="objective" role="status"></div>
-          <button id="btn-pause" aria-label="Pause game">⏸</button>
+        <div class="hud-stack">
+          <div class="hud-top">
+            <div id="objective" role="status"></div>
+            <button id="btn-pause" aria-label="Pause game">⏸</button>
+          </div>
+          <div id="danger-banner" role="alert">Trail exposed — get home!</div>
         </div>
-        <div id="danger-banner" role="alert">Trail exposed — get home!</div>
         <div id="hud-actions">
           <button id="btn-undo" class="hidden" style="display:none">↩ Undo</button>
           <button id="btn-camera">⌂ Camera</button>

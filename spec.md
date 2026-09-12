@@ -40,7 +40,7 @@ Score owned area and eliminations; server verifies geometric claims. Results sho
 ### Modes
 
 - **Learn:** interactive lessons introduce one rule at a time and require the player to perform the action.
-- **Journey:** authored progression with gradually combined mechanics and periodic mastery stages.
+- **Journey:** authored progression with gradually combined mechanics and periodic mastery stages. A stage records best score and attempts on every run but counts as complete only once won. The camera and lights render the gameplay and FX layers; the danger banner sits in flow beneath the objective row, with pause in its own column.
 - **Daily:** one shared seed and ruleset per UTC day, synchronized to platform time.
 - **Practice:** selectable difficulty, restart, undo where rules permit, and no effect on competitive rating.
 - **Challenge:** constrained goals such as move limits, speed targets, altered layouts, or restricted tools.

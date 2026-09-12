@@ -12,6 +12,9 @@ export class Renderer {
     this.container = container;
     this.scene = new THREE.Scene();
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
+    // the camera renders every layer: environment, gameplay pieces and FX
+    this.camera.layers.enable(LAYER_GAME);
+    this.camera.layers.enable(LAYER_FX);
     this.camera.position.set(0, 42, 26);
     this.camera.lookAt(0, 0, 0);
 
@@ -36,6 +39,7 @@ export class Renderer {
     key.shadow.mapSize.set(1024, 1024);
     this.keyLight = key;
     const fill = new THREE.HemisphereLight(0xbdd3ff, 0x1a2233, 0.9);
+    for (const l of [key, fill]) { l.layers.enable(LAYER_GAME); l.layers.enable(LAYER_FX); }
     this.scene.add(key, fill);
 
     // Quality tier state.

@@ -89,7 +89,7 @@ function boot() {
 }
 
 function progressSummary() {
-  const stages = Object.keys(app.progress.stagesCompleted).length;
+  const stages = Object.values(app.progress.stagesCompleted).filter((r) => r && r.won).length;
   return stages > 0 ? 'Journey progress: ' + stages + ' / ' + STAGES.length + ' stages.' : 'New here? Start with Learn.';
 }
 
@@ -114,7 +114,7 @@ function onAction(action, payload) {
     case 'play':
       // Short path to play: continue Journey at first unfinished stage.
       {
-        const next = STAGES.find((s) => !app.progress.stagesCompleted[s.id]) || STAGES[STAGES.length - 1];
+        const next = STAGES.find((s) => !(app.progress.stagesCompleted[s.id] && app.progress.stagesCompleted[s.id].won)) || STAGES[STAGES.length - 1];
         startJourneyStage(next);
       }
       break;
@@ -345,14 +345,21 @@ function onRoundEnd(state) {
   if (app.mode === 'journey' && app.modeData.stage) {
     const sid = app.modeData.stage.id;
     const score = local.area + local.eliminations * 50;
-    const prev = app.progress.stagesCompleted[sid];
-    if (!prev || score > prev.score) app.progress.stagesCompleted[sid] = { score: score, won: won };
+    // Best score and attempts are recorded for every run; a stage only
+    // counts as complete once it has actually been won.
+    const prev = app.progress.stagesCompleted[sid] || { score: 0, won: false, attempts: 0 };
+    app.progress.stagesCompleted[sid] = {
+      score: Math.max(prev.score || 0, score),
+      won: !!(prev.won || won),
+      attempts: (prev.attempts || 0) + 1,
+    };
     if (won) {
       app.streak++;
       if (app.streak >= 3 && platform.unlockAchievement(app.progress, 'streak-three')) unlocked.push('streak-three');
       if (app.modeData.stage.index === 40 && platform.unlockAchievement(app.progress, 'chapter-five')) unlocked.push('chapter-five');
     } else app.streak = 0;
-    progressText = 'Journey stage ' + app.modeData.stage.index + ' recorded. Best: ' + app.progress.stagesCompleted[sid].score + '.';
+    progressText = (won ? 'Journey stage ' + app.modeData.stage.index + ' complete.' : 'Journey stage ' + app.modeData.stage.index + ' not yet complete.')
+      + ' Best: ' + app.progress.stagesCompleted[sid].score + '.';
   } else if (app.mode === 'learn' && app.lesson) {
     app.progress.lessonsCompleted[app.lesson.id] = { done: true };
     if (Object.keys(app.progress.lessonsCompleted).length >= LESSONS.length &&

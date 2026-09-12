@@ -149,7 +149,8 @@ export const ui = {
       list.className = 'grid-list';
       for (const s of STAGES) {
         const b = document.createElement('button');
-        const done = data.progress.stagesCompleted[s.id];
+        const rec = data.progress.stagesCompleted[s.id];
+        const done = rec && rec.won;
         b.innerHTML = '<strong>' + s.index + '. ' + s.name + '</strong><br><span class="muted">' +
           s.goalText + (done ? ' ✓' : '') + (s.mastery ? ' — Mastery' : '') + '</span>';
         b.addEventListener('click', () => this.onAction('setup-pick', { mode: 'journey', stage: s }));
@@ -374,7 +375,7 @@ export const ui = {
     // Left rail: journey progress summary.
     const rj = $('rail-journey');
     rj.innerHTML = '';
-    const done = Object.keys(progress.stagesCompleted).length;
+    const done = Object.values(progress.stagesCompleted).filter((r) => r && r.won).length;
     const p = document.createElement('p');
     p.textContent = 'Journey: ' + done + ' / ' + STAGES.length + ' stages complete.';
     rj.appendChild(p);
