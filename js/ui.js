@@ -4,6 +4,8 @@
 import { STAGES, PRACTICE_DIFFICULTIES, CHALLENGES, LESSONS } from './content.js';
 import { ACHIEVEMENTS } from './platform.js?v=d149b156';
 import * as platform from './platform.js?v=d149b156';
+import { PRESETS, CATEGORIES, resolve, presetTier, choosePreset } from './gfx.js';
+import { gfxStrings } from './gfx-i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -14,6 +16,8 @@ export const ui = {
   settings: null,
   lastFocus: null,
   onAction: null, // (action, payload) => controller
+  gfxInfo: null, // (words) => renderer.graphicsInfo(words), set by main
+  _gfxTimer: null,
 
   init(settings, onAction) {
     this.settings = settings;
@@ -106,6 +110,7 @@ export const ui = {
   },
 
   closeOverlay() {
+    if (this._gfxTimer) { clearInterval(this._gfxTimer); this._gfxTimer = null; }
     $('screen-settings').classList.remove('visible');
     $('screen-help').classList.remove('visible');
     if (this.lastFocus && this.lastFocus.focus) this.lastFocus.focus();
@@ -223,13 +228,6 @@ export const ui = {
     row('Music volume', slider('music'));
     row('Effects volume', slider('effects'));
     row('Ambience volume', slider('ambience'));
-    const q = document.createElement('select');
-    for (const v of ['auto', 'low', 'medium', 'high']) {
-      const o = document.createElement('option'); o.value = v; o.textContent = v; q.appendChild(o);
-    }
-    q.value = s.quality;
-    q.addEventListener('change', () => { s.quality = q.value; this.save(); });
-    row('Graphics quality', q);
     const pal = document.createElement('select');
     for (const v of ['default', 'deuteranopia', 'protanopia', 'tritanopia']) {
       const o = document.createElement('option'); o.value = v; o.textContent = v; pal.appendChild(o);
@@ -244,6 +242,135 @@ export const ui = {
     row('Haptics', check('haptics'));
     row('Tutorial hints', check('showTutorialHints'));
     row('Anonymous usage stats', check('consentTelemetry'));
+    const gfx = document.createElement('div');
+    gfx.id = 'gfx-section';
+    gfx.className = 'col gfx-section';
+    body.appendChild(gfx);
+    this.buildGraphicsSection(gfx);
+    if (this._gfxTimer) clearInterval(this._gfxTimer);
+    this._gfxTimer = setInterval(() => this.refreshGraphicsSummary(), 1000);
+  },
+
+  // Graphics: quality preset, render scale, per-effect overrides, adaptive
+  // resolution, frame-rate readout, and a GPU / cost summary line.
+  buildGraphicsSection(host) {
+    const T = gfxStrings();
+    const s = this.settings;
+    if (!s.graphics || typeof s.graphics !== 'object') s.graphics = { preset: 'auto' };
+    const g = s.graphics;
+    const info = this.gfxInfo ? this.gfxInfo(T.words) : null;
+    const detected = info ? info.detected : 'balanced';
+    const r = resolve(g, detected);
+    host.innerHTML = '';
+    const h = document.createElement('h3');
+    h.id = 'gfx-h';
+    h.textContent = T.graphics;
+    host.appendChild(h);
+
+    const line = (labelText, control, id) => {
+      const div = document.createElement('div');
+      div.className = 'row gfx-row';
+      const lab = document.createElement('label');
+      lab.textContent = labelText;
+      lab.htmlFor = id;
+      div.appendChild(lab);
+      div.appendChild(control);
+      host.appendChild(div);
+    };
+    const apply = (rebuild) => {
+      this.save();
+      if (rebuild) this.buildGraphicsSection(host);
+      setTimeout(() => this.refreshGraphicsSummary(), 80);
+    };
+
+    const preset = document.createElement('select');
+    preset.id = 'gfx-preset';
+    preset.dataset.gfx = 'preset';
+    const tierName = (t) => T.tier[t] || t;
+    for (const v of ['auto'].concat(PRESETS)) {
+      const o = document.createElement('option');
+      o.value = v;
+      o.textContent = v === 'auto' ? T.auto.replace('{tier}', tierName(detected)) : tierName(v);
+      preset.appendChild(o);
+    }
+    preset.value = PRESETS.includes(g.preset) ? g.preset : 'auto';
+    preset.addEventListener('change', () => { s.graphics = choosePreset(s.graphics, preset.value); apply(true); });
+    line(T.quality, preset, 'gfx-preset');
+
+    const scaleWrap = document.createElement('span');
+    scaleWrap.className = 'gfx-scale';
+    const scale = document.createElement('input');
+    scale.type = 'range'; scale.id = 'gfx-scale'; scale.dataset.gfx = 'render_scale';
+    scale.min = '50'; scale.max = '200'; scale.step = '10';
+    scale.value = String(Math.round(r.renderScale * 100));
+    const scaleVal = document.createElement('output');
+    scaleVal.id = 'gfx-scale-value';
+    scaleVal.htmlFor = 'gfx-scale';
+    scaleVal.textContent = scale.value + '%';
+    scale.addEventListener('input', () => {
+      scaleVal.textContent = scale.value + '%';
+      s.graphics.render_scale = Number(scale.value) / 100;
+      apply(false);
+    });
+    scaleWrap.appendChild(scale);
+    scaleWrap.appendChild(scaleVal);
+    line(T.renderScale, scaleWrap, 'gfx-scale');
+
+    for (const [cat, tiers] of Object.entries(CATEGORIES)) {
+      const sel = document.createElement('select');
+      sel.id = 'gfx-' + cat;
+      sel.dataset.gfxCat = cat;
+      const from = document.createElement('option');
+      from.value = 'preset';
+      from.textContent = T.fromPreset.replace('{tier}', tierName(presetTier(r.preset, cat)));
+      sel.appendChild(from);
+      for (const t of tiers) {
+        const o = document.createElement('option');
+        o.value = t; o.textContent = tierName(t);
+        sel.appendChild(o);
+      }
+      sel.value = tiers.includes(g[cat]) ? g[cat] : 'preset';
+      sel.addEventListener('change', () => {
+        if (sel.value === 'preset') delete s.graphics[cat];
+        else s.graphics[cat] = sel.value;
+        apply(false);
+      });
+      line(T.cat[cat] || cat, sel, sel.id);
+    }
+
+    const toggle = (id, key, labelText, def) => {
+      const i = document.createElement('input');
+      i.type = 'checkbox'; i.id = id; i.dataset.gfx = key;
+      i.checked = key in g ? !!g[key] : def;
+      i.addEventListener('change', () => { s.graphics[key] = i.checked; apply(false); });
+      line(labelText, i, id);
+    };
+    toggle('gfx-adaptive', 'adaptive', T.adaptive, true);
+    toggle('gfx-fps', 'show_fps', T.showFps, false);
+
+    const sum = document.createElement('p');
+    sum.id = 'gfx-summary';
+    sum.className = 'muted gfx-summary';
+    sum.setAttribute('aria-live', 'polite');
+    host.appendChild(sum);
+    const note = document.createElement('p');
+    note.id = 'gfx-post-note';
+    note.className = 'muted';
+    note.textContent = T.postUnavailable;
+    note.hidden = true;
+    host.appendChild(note);
+    this.refreshGraphicsSummary();
+  },
+
+  refreshGraphicsSummary() {
+    const sum = $('gfx-summary');
+    if (!sum || !this.gfxInfo) return;
+    const T = gfxStrings();
+    const info = this.gfxInfo(T.words);
+    sum.textContent = info.gpu + ' · ' + info.summary + (info.fps ? ' · ' + info.fps + ' fps' : '');
+    sum.dataset.preset = info.resolved.preset;
+    const note = $('gfx-post-note');
+    if (note) note.hidden = !info.postFailed;
   },
 
   save() {

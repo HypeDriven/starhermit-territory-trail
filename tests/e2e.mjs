@@ -32,7 +32,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SHOT = (stage, vp) => `/tmp/territory-trail-e2e-${stage}-${vp}.png`;
+const SHOT = (stage, vp) => path.join(ROOT, 'test-results', `e2e-${stage}-${vp}.png`);
 
 // benign GPU/swiftshader noise (mirrors siblings)
 const browserNoise = /GL Driver Message|GPU stall due to ReadPixels|Automatic fallback to software WebGL|EnableWebGLDeveloperExtensions/i;
@@ -161,7 +161,7 @@ async function runDesktop(browser, name) {
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
-    if (m.type() === 'error' && !browserNoise.test(m.text())) errors.push(`console: ${m.text()}`);
+    if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`console ${m.type()}: ${m.text()}`);
   });
 
   await page.goto(BASE_URL, { waitUntil: 'load' });
@@ -253,7 +253,7 @@ async function runMobile(browser, name) {
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
-    if (m.type() === 'error' && !browserNoise.test(m.text())) errors.push(`console: ${m.text()}`);
+    if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`console ${m.type()}: ${m.text()}`);
   });
 
   await page.goto(BASE_URL, { waitUntil: 'load' });
@@ -311,6 +311,87 @@ async function runMobile(browser, name) {
   if (errors.length) throw new Error(`${name} pass had page errors:\n  ${errors.join('\n  ')}`);
 }
 
+// ---------- graphics settings pass ----------
+// Real UI: Settings → Graphics, switch presets (Low, Ultra, High), override one
+// category, verify it is applied (body data-gfx-preset + summary line), that the
+// panel fits the viewport, a round renders with the post chain, and the choice
+// survives a reload.
+async function runGraphics(browser, name, ctxOpts) {
+  const errors = [];
+  const context = await browser.newContext(ctxOpts);
+  const page = await context.newPage();
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => {
+    if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`console ${m.type()}: ${m.text()}`);
+  });
+  await page.goto(BASE_URL, { waitUntil: 'load' });
+  await page.waitForSelector('#screen-title.visible', { state: 'visible', timeout: 10000 });
+  const auto = await page.getAttribute('body', 'data-gfx-preset');
+  ok(`${name}: auto preset resolved to "${auto}"`);
+
+  const openSettings = async () => {
+    await page.click('#btn-settings');
+    await page.waitForSelector('#screen-settings.visible', { state: 'visible' });
+    await page.locator('#gfx-preset').scrollIntoViewIfNeeded();
+  };
+  await openSettings();
+  const vp = page.viewportSize();
+  const card = await page.locator('#screen-settings .card').boundingBox();
+  if (card.x < 0 || card.y < 0 || card.x + card.width > vp.width + 1 || card.y + card.height > vp.height + 1) {
+    throw new Error(`settings card overflows viewport: ${JSON.stringify(card)}`);
+  }
+  const autoLabel = await page.locator('#gfx-preset option[value="auto"]').textContent();
+  if (!/Auto \(detected: /.test(autoLabel)) throw new Error(`auto label "${autoLabel}"`);
+
+  for (const preset of ['low', 'ultra', 'high']) {
+    await page.selectOption('#gfx-preset', preset);
+    try {
+      await page.waitForFunction((p) => document.body.dataset.gfxPreset === p, preset, { timeout: 15000 });
+    } catch (e) {
+      throw new Error(`preset ${preset} not applied (body=${await page.getAttribute('body', 'data-gfx-preset')}, select=${await page.inputValue('#gfx-preset')}); ${errors.join(' | ')}`);
+    }
+    await page.waitForTimeout(400); // a few frames through the post chain
+  }
+  await page.waitForFunction(() => /2048² shadows/.test(document.getElementById('gfx-summary').textContent), null, { timeout: 5000 });
+  ok(`${name}: presets Low → Ultra → High applied ("${(await page.textContent('#gfx-summary')).slice(-60)}")`);
+
+  await page.locator('#gfx-bloom').scrollIntoViewIfNeeded();
+  await page.selectOption('#gfx-bloom', 'off');
+  await page.waitForFunction(() => !/ · bloom · /.test(document.getElementById('gfx-summary').textContent), null, { timeout: 5000 });
+  const fromLabel = await page.locator('#gfx-shadows option[value="preset"]').textContent();
+  if (!/From preset \(Medium\)/.test(fromLabel)) throw new Error(`preset label "${fromLabel}"`);
+  ok(`${name}: bloom override applied (summary drops bloom)`);
+
+  await page.click('#btn-settings-close');
+  await page.waitForSelector('#screen-settings.visible', { state: 'hidden' });
+
+  // a round renders at High with the post chain
+  await page.click('#btn-play');
+  if (!(await waitPhase(page, 'active', 15000))) throw new Error('round never active at High');
+  await page.waitForTimeout(800);
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('#screen-pause.visible', { state: 'visible' });
+  await page.click('#btn-leave');
+  await page.waitForSelector('#screen-title.visible', { state: 'visible' });
+  ok(`${name}: round rendered at High`);
+
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#screen-title.visible', { state: 'visible', timeout: 10000 });
+  await page.waitForFunction(() => document.body.dataset.gfxPreset === 'high', null, { timeout: 5000 });
+  await openSettings();
+  const persisted = [await page.inputValue('#gfx-preset'), await page.inputValue('#gfx-bloom')];
+  if (persisted[0] !== 'high' || persisted[1] !== 'off') throw new Error(`graphics not persisted: ${persisted}`);
+  ok(`${name}: graphics choice survives reload (${persisted.join(', ')})`);
+  // choosing a preset clears overrides
+  await page.selectOption('#gfx-preset', 'low');
+  await page.waitForFunction(() => document.body.dataset.gfxPreset === 'low', null, { timeout: 5000 });
+  if ((await page.inputValue('#gfx-bloom')) !== 'preset') throw new Error('preset did not clear overrides');
+  ok(`${name}: choosing a preset clears overrides`);
+
+  await context.close();
+  if (errors.length) throw new Error(`${name} graphics pass had console output:\n  ${errors.join('\n  ')}`);
+}
+
 // ---------- main ----------
 const BASE_URL = await new Promise((resolve) => {
   server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`));
@@ -324,6 +405,8 @@ try {
   });
   await runDesktop(browser, 'desktop');
   await runMobile(browser, 'mobile');
+  await runGraphics(browser, 'gfx-desktop', { viewport: { width: 1280, height: 800 } });
+  await runGraphics(browser, 'gfx-mobile', { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   console.log('\nE2E PASS — territory-trail, desktop + mobile, no page errors');
 } finally {
   if (browser) await browser.close();

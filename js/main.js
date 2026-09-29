@@ -9,7 +9,7 @@ import * as audio from './audio.js';
 import * as platform from './platform.js?v=d149b156';
 import { RoomsClient } from './net.js?v=d149b156';
 import { STAGES, LESSONS, dailyChallenge, themeById, CONTENT_VERSION } from './content.js';
-import { PHASE, rankPlayers, legalDirections, makeEnvelope, dailySeed } from './rules.js';
+import { PHASE, rankPlayers, legalDirections, makeEnvelope, dailySeed, createGame, initHash, step as stepGame } from './rules.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -72,11 +72,14 @@ function boot() {
     return;
   }
 
+  ui.gfxInfo = (words) => app.renderer.graphicsInfo(words);
   ui.init(app.settings, onAction);
   audio.init(app.settings);
 
+  migrateGraphics();
   applyQuality();
   bindInput();
+  startAttract();
   updateDailyLabel();
   ui.updateRails(null, null, app.progress);
   $('title-progress').textContent = progressSummary();
@@ -98,13 +101,45 @@ function updateDailyLabel() {
   $('btn-daily').textContent = 'Daily Challenge — ' + d.day + (platform.isTimeSynced() ? '' : ' (local clock)');
 }
 
+function reducedMotion() {
+  return !!app.settings.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+// Older builds stored one coarse `quality` tier; carry an explicit choice over once.
+function migrateGraphics() {
+  if (app.settings.graphics && typeof app.settings.graphics === 'object') return;
+  const map = { low: 'low', medium: 'balanced', high: 'high' };
+  app.settings.graphics = map[app.settings.quality] ? { preset: map[app.settings.quality] } : { preset: 'auto' };
+}
+
 function applyQuality() {
-  let q = app.settings.quality;
-  if (q === 'auto') {
-    const coarse = window.matchMedia('(pointer: coarse)').matches;
-    q = coarse ? 'medium' : 'high';
-  }
-  app.renderer.setQuality(q, app.settings.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  app.renderer.setGraphics(app.settings.graphics, reducedMotion());
+}
+
+// Title backdrop: a small rival-only round plays itself behind the menu.
+const ATTRACT_TICK_MS = 150;
+function startAttract() {
+  if (!app.renderer || app.renderer.failed) return;
+  const bots = [0, 1, 2, 3].map((i) => ({ id: 'a' + i, name: 'Demo ' + (i + 1), isBot: true }));
+  const g = createGame({ seed: 9401, width: 26, height: 18, maxTicks: 100000, players: bots });
+  initHash(g);
+  for (let i = 0; i < 160 && g.phase === PHASE.ACTIVE; i++) stepGame(g);
+  app.attract = { state: g, last: 0, steps: 0 };
+  app.renderer.buildBoard(g, effectiveTheme('meadow-dawn'));
+  app.renderer.setAttract(true);
+  app.renderer.update({ state: g, events: [] }, 1);
+}
+
+function tickAttract(now) {
+  const A = app.attract;
+  if (!A || app.phase !== 'title' || app.session) return;
+  if (reducedMotion() || app.renderer.q.background !== 'animated') return;
+  if (now - A.last < ATTRACT_TICK_MS) return;
+  A.last = now;
+  stepGame(A.state);
+  A.steps++;
+  if (A.state.phase !== PHASE.ACTIVE || A.steps > 1200) { startAttract(); return; }
+  app.renderer.update({ state: A.state, events: [] }, 1);
 }
 
 // ------------------------------------------------------------------ actions
@@ -194,6 +229,7 @@ function beginRound(config, defs, modeData) {
   ui.setObjective(modeData.goalText);
   ui.setStatus(modeData.label, '');
   ui.announce(modeData.goalText);
+  app.attract = null;
   app.renderer.buildBoard(app.session.state, effectiveTheme(modeData.theme));
   app.renderer.resize();
   setPhase('preparing');
@@ -318,6 +354,7 @@ function goHome() {
   if (app.session) { app.session.stop(); app.session = null; }
   if (app.hosted) hostedLeave(); // leaving from the lobby/results drops the room seat
   setPhase('title');
+  startAttract();
   ui.setStatus('', '');
   ui.setDanger(false);
   ui.updateRails(null, null, app.progress);
@@ -648,6 +685,7 @@ function frame(now) {
       // Audio for logical events.
     }
     const evs = app.session.events; app.session.events = [];
+    const fxEvents = evs.filter((ev) => ev.kind === 'claim');
     for (const ev of evs) {
       if (ev.kind === 'claim') { audio.play('claim'); if (app.mode === 'learn' && app.lessonStats) app.lessonStats.claims++; }
       else if (ev.kind === 'cut') audio.play('cut');
@@ -657,8 +695,10 @@ function frame(now) {
     }
     if (!hidden) {
       const alpha = app.session.paused ? 1 : Math.min(1, app.session.accumulator / TICK_MS);
-      app.renderer.update({ state: snap, events: [] }, alpha);
+      app.renderer.update({ state: snap, events: fxEvents }, alpha);
     }
+  } else if (!hidden) {
+    tickAttract(now);
   }
   if (!hidden && app.renderer && !app.renderer.failed) app.renderer.render();
   lastFrame = now;
