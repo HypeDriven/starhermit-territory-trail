@@ -80,6 +80,10 @@
   #touch-pad button { padding:0; font-size:1.3em; background:rgba(26,37,64,0.75); pointer-events:auto; }
   body.left-handed #touch-pad { right:auto; left:calc(0.8em + var(--safe-left)); }
 
+  #sh-toast { position:fixed; left:50%; bottom:calc(1em + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:60;
+    max-width:min(92vw, 34em); padding:0.6em 1.1em; border-radius:12px; text-align:center; overflow-wrap:anywhere;
+    background:var(--panel); border:1px solid var(--accent); color:var(--text); }
+  #sh-toast[hidden] { display:none; }
   #sr-announcer { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
   #board-mirror { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
 
@@ -131,6 +135,7 @@
   { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
 </script>
 <script src="browser-guard.js"></script>
+<script src="starhermit-sdk.js"></script>
 </head>
 <body>
 <div id="app">
@@ -183,6 +188,10 @@
           <button id="btn-daily">Daily Challenge</button>
           <button id="btn-learn">Learn</button>
           <button id="btn-hosted">Hosted Play</button>
+        </div>
+        <div class="row">
+          <button id="btn-signin" hidden>Sign in with StarHermit</button>
+          <button id="btn-invite" hidden>Invite a friend</button>
         </div>
         <p class="muted" id="title-progress"></p>
       </section>
@@ -275,16 +284,8 @@
               everyone else steers their marker. Empty seats are filled by rivals. Late joiners spectate
               the live round and play the next one.</p>
           </div>
-          <div id="hosted-dev-ui" class="col">
-            <div class="row">
-              <label>Room code <input id="hosted-room" type="text" maxlength="12" value="lobby" style="width:8em"></label>
-              <button id="btn-hosted-join" class="primary">Join</button>
-            </div>
-            <p class="muted">Local dev server protocol (server.js): a short lobby window fills empty
-              seats with AI and starts the round automatically.</p>
-          </div>
           <p id="hosted-offline-note" class="muted" style="display:none">Hosted play needs a StarHermit
-            launch (online) or the local dev server (<code>npm start</code>, then the room-code join above).</p>
+            launch (online).</p>
           <div id="hosted-roster" class="col"></div>
           <button id="btn-hosted-back">Back</button>
         </div>
@@ -300,6 +301,7 @@
 
 <div id="drawer-backdrop"></div>
 <div id="sr-announcer" aria-live="polite"></div>
+<div id="sh-toast" role="status" hidden></div>
 <div id="board-mirror" role="region" aria-label="Board summary" tabindex="0"></div>
 <noscript><p style="padding:2em">Territory Trail requires JavaScript.</p></noscript>
 <script type="module" src="./js/main.js?v=d149b156"></script>

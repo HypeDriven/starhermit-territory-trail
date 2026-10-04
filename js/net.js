@@ -45,7 +45,7 @@ function wireState(s) {
 
 export class RoomsClient {
   /**
-   * @param platform  platform module (api/getToken/getUserId/getGameSlug/
+   * @param platform  platform module (rooms/getUserId/getGameSlug/
    *                  getDisplayName/profileFor).
    */
   constructor(platform) {
@@ -74,20 +74,15 @@ export class RoomsClient {
   /** Host: create a 4-seat room and open it for quick-join. */
   async createAndOpen() {
     this._emit('status', { text: 'Creating room…' });
-    const res = await this.platform.api('/api/v1/realtime/rooms', {
-      method: 'POST',
-      body: JSON.stringify({
-        teamCount: 1,
-        seatsPerTeam: ROOM_SEATS,
-        metadata: { gameSlug: this.platform.getGameSlug() },
-      }),
+    const room = await this.platform.rooms.create({
+      teamCount: 1,
+      seatsPerTeam: ROOM_SEATS,
+      metadata: { gameSlug: this.platform.getGameSlug() },
     });
-    if (!res.ok) throw new Error('http-' + res.status);
-    const room = await res.json();
     this.roomId = roomIdOf(room);
     if (!this.roomId) throw new Error('bad-room-payload');
     this.isHost = true;
-    await this.platform.api('/api/v1/realtime/rooms/' + encodeURIComponent(this.roomId) + '/open', { method: 'POST' })
+    await this.platform.rooms.open(this.roomId)
       .catch(() => { /* open is best-effort; the room still exists */ });
     await this._connectWs();
     this._emit('welcome', { playerId: this.myPlayerId });
@@ -97,16 +92,11 @@ export class RoomsClient {
   /** Guest: quick-join any open room for this game (404 = none open). */
   async quickJoin() {
     this._emit('status', { text: 'Looking for an open room…' });
-    const res = await this.platform.api('/api/v1/realtime/rooms/quick-join', {
-      method: 'POST',
-      body: JSON.stringify({ gameSlug: this.platform.getGameSlug(), seats: 1 }),
-    });
-    if (res.status === 404) {
+    const room = await this.platform.rooms.quickJoin({ seats: 1 });
+    if (!room) { // 404: no open room
       this._emit('error', { message: 'No open rooms right now. Create one and other players can quick-join it.' });
       return false;
     }
-    if (!res.ok) throw new Error('http-' + res.status);
-    const room = await res.json();
     this.roomId = roomIdOf(room);
     if (!this.roomId) throw new Error('bad-room-payload');
     this.isHost = false;
@@ -117,9 +107,7 @@ export class RoomsClient {
   // ------------------------------------------------------------- transport
 
   _wsUrl() {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return proto + '//' + location.host + '/ws/v1/realtime?roomId=' + encodeURIComponent(this.roomId) +
-      '&access_token=' + encodeURIComponent(this.platform.getToken());
+    return this.platform.rooms.socketUrl(this.roomId);
   }
 
   _connectWs() {
@@ -150,10 +138,8 @@ export class RoomsClient {
     const delay = Math.min(8000, 500 * Math.pow(2, this._reconnects++));
     this._emit('status', { text: 'Connection lost — reconnecting (attempt ' + this._reconnects + ')…' });
     this._reconnectTimer = setTimeout(() => {
-      this.platform.api('/api/v1/realtime/rooms/mine')
-        .then(async (res) => {
-          if (!res.ok) throw new Error('http-' + res.status);
-          const mine = await res.json();
+      this.platform.rooms.mine()
+        .then(async (mine) => {
           const rid = roomIdOf(mine);
           if (!rid) throw new Error('not-in-room');
           this.roomId = rid;
@@ -189,7 +175,7 @@ export class RoomsClient {
     try { if (this.ws) this.ws.close(); } catch (e) { /* already closed */ }
     this.ws = null;
     if (room) {
-      this.platform.api('/api/v1/realtime/rooms/' + encodeURIComponent(room) + '/leave', { method: 'POST' })
+      this.platform.rooms.leave(room)
         .catch(() => { /* seat is released by the room TTL anyway */ });
     }
   }
@@ -267,10 +253,7 @@ export class RoomsClient {
         score: state.players[i].area + state.players[i].eliminations * 50,
       })),
     };
-    this.platform.api('/api/v1/realtime/rooms/' + encodeURIComponent(this.roomId) + '/result', {
-      method: 'POST',
-      body: JSON.stringify({ result: result }),
-    }).catch(() => { /* the end frame already delivered the outcome */ });
+    this.platform.rooms.result(this.roomId, result).catch(() => { /* the end frame already delivered the outcome */ });
   }
 
   _resumeGuests() {

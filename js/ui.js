@@ -48,7 +48,6 @@ export const ui = {
     $('btn-help-close').addEventListener('click', () => this.closeOverlay());
     $('btn-undo').addEventListener('click', () => onAction('undo'));
     $('btn-camera').addEventListener('click', () => onAction('camera'));
-    $('btn-hosted-join').addEventListener('click', () => onAction('hosted-join', $('hosted-room').value.trim() || 'lobby'));
     $('btn-hosted-back').addEventListener('click', () => onAction('home'));
     $('btn-hosted-quickjoin').addEventListener('click', () => onAction('hosted-quickjoin'));
     $('btn-hosted-create').addEventListener('click', () => onAction('hosted-create'));
@@ -241,7 +240,6 @@ export const ui = {
     row('Left-handed controls', check('leftHanded'));
     row('Haptics', check('haptics'));
     row('Tutorial hints', check('showTutorialHints'));
-    row('Anonymous usage stats', check('consentTelemetry'));
     const gfx = document.createElement('div');
     gfx.id = 'gfx-section';
     gfx.className = 'col gfx-section';
@@ -375,7 +373,6 @@ export const ui = {
 
   save() {
     platform.saveSettings(this.settings);
-    platform.track('settings-change');
     this.applyAccessibility();
     if (this.onAction) this.onAction('settings-changed');
   },
@@ -387,18 +384,27 @@ export const ui = {
     document.body.classList.toggle('left-handed', !!s.leftHanded);
   },
 
+  /** Show the effective keyboard bindings in the help cards. */
+  setBindings(bindings) {
+    this.bindings = bindings;
+    if ($('help-body')) this.buildHelp();
+  },
+
   // ------------------------------------------------------------- help
   buildHelp() {
+    const b = this.bindings || platform.DEFAULT_BINDINGS;
+    const label = (c) => (/^Key[A-Z]$/.test(c) ? c.slice(3) : ({ Escape: 'Esc', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→' }[c] || c));
+    const keys = (a) => (b[a] || []).map(label).join('/') || '—';
     const body = $('help-body');
     body.innerHTML = '';
     const cards = [
-      ['Steer', 'Arrow keys, WASD, the on-screen pad, or a swipe changes direction. Your marker keeps moving.'],
+      ['Steer', keys('up') + ' ' + keys('left') + ' ' + keys('down') + ' ' + keys('right') + ', the on-screen pad, or a swipe changes direction. Your marker keeps moving.'],
       ['Claim', 'Leave your colored territory, draw a loop, and re-enter your own land. The enclosed cells become yours and add to your score.'],
       ['Danger', 'While outside, your trail is exposed. If a rival crosses it, you are eliminated. Your ring pulses white while exposed.'],
       ['Cut', 'Cross a rival\'s exposed trail to eliminate them: +50 score.'],
       ['Win', 'Reach the area goal, outlast every rival, or hold the most territory when time runs out. Ties break on fewer invalid moves.'],
-      ['Undo', 'In Practice mode, Undo returns to the moment before your last claim.'],
-      ['Camera', 'Press C or the Camera button to refit the board. Escape or P pauses.'],
+      ['Undo', 'In Practice mode, Undo (' + keys('undo') + ') returns to the moment before your last claim.'],
+      ['Camera', 'Press ' + keys('camera') + ' or the Camera button to refit the board. ' + keys('pause') + ' pauses.'],
     ];
     for (const [t, d] of cards) {
       const div = document.createElement('div');
@@ -536,12 +542,11 @@ export const ui = {
   // game's own dev server (local). Neither → honest unavailable note.
   setHostedMode(opts) {
     $('hosted-rooms-ui').style.display = opts.rooms ? '' : 'none';
-    $('hosted-dev-ui').style.display = !opts.rooms && opts.dev ? '' : 'none';
-    $('hosted-offline-note').style.display = !opts.rooms && !opts.dev ? '' : 'none';
+    $('hosted-offline-note').style.display = opts.rooms ? 'none' : '';
     this.setHostedStartVisible(false, false);
     this.setHostedStatus(opts.rooms
       ? 'Quick join an open room, or create one and other players can quick-join it.'
-      : (opts.dev ? 'Not connected.' : 'Hosted play is unavailable on this build.'));
+      : 'Hosted play is unavailable on this build.');
   },
 
   // In a room: host sees Start round + Leave; a guest sees Leave only.

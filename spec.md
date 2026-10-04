@@ -168,7 +168,7 @@ Follow the skill pack's acceptance gate: deterministic seeds, debug views for co
 - `ui`: responsive DOM shell, focus, localization, settings, overlays, accessibility mirror.
 - `audio`: buses, event mapping, focus/background behavior, decode and memory policy.
 - `content`: versioned levels, themes, tutorials, validation metadata.
-- `platform`: token-aware REST/WebSocket adapter, retries, rate-limit handling, telemetry consent.
+- `platform`: token-aware REST/WebSocket adapter, retries, rate-limit handling.
 
 No module may mutate rules state except through a validated command. Rendering consumes immutable snapshots plus interpolation data. UI state and simulation state are separate so closing a drawer cannot affect a match.
 
@@ -190,17 +190,19 @@ No module may mutate rules state except through a validated command. Rendering c
 ## 6. StarHermit integration
 
 ### Packaging and launch
-- Ship a browser distribution with `starhermit.txt` at its root, `name=Territory Trail`, and `launch=index.html`. Keep source files, secrets, design documents, and source maps outside the uploaded distribution.
-- Read the launch token from the `#game_token=` URL fragment (read once, then stripped; query forms are local-dev fallbacks only). Decode `sub` and `game_scope` from the JWT (no hard-coded slug). Send `Authorization: Bearer` on every REST call and re-mint the token every 45 min via `POST /api/v1/games/{slug}/launch-token`; never persist tokens in local storage.
-- `GET /api/v1/time` sync runs only against the game's own dev server; on-platform the daily challenge falls back to the local clock (labeled in the UI). Treat rate limits and structured `{"error":"..."}` responses as recoverable UI states.
+- Ships `starhermit.txt` (`name=Territory Trail`, `launch=index.html`, `control.*` key declarations) and a copy of the canonical `starhermit-sdk.js`, loaded by `index.html` before the game modules. `js/platform.js` is a thin adapter over `window.StarHermit`: it calls `StarHermit.init()` on load, which reads `#game_token=` (library launch) or `#access_token=` (direct sign-in return), strips it, takes the slug from the `game_scope` claim and renews the token on the SDK's schedule. Tokens are never persisted.
+- On `*.starhermit.com` without a token the title shows a localized "Sign in with StarHermit" button (`StarHermit.signIn()`), hidden when signed in and off-platform. If renewal is refused the SDK signs out: the button returns, a localized toast says progress stays on this device, and play continues locally.
+- Without a token the game makes no request to any `/api/…` or `/ws` route, on any host including localhost: the daily challenge uses the local clock, there is no telemetry or presence, and Hosted play shows an unavailable note (the client has no `server.js` room-code transport).
 
 ### Identity, profile, presence, and preferences
-- Support guest practice locally, then offer account sign-in for durable progress. Use the profile display name from `GET /api/v1/users/{sub}/profile` (nickname; "Player "+id8 fallback; never usernames, never `/api/v1/me`) where identity is useful — the status bar shows "Playing as … · cloud sync". Fabricated per-game presence/telemetry routes are never called on-platform (dev server only, consent-gated).
-- Store accessibility, audio, graphics tier, tutorial completion, camera preference, and rules options through per-game settings. Declare desktop action bindings and read player overrides; touch mappings remain responsive UI controls.
-- Cloud-save progression as a versioned, checksummed document in one zip+base64 slot at `GET`/`PUT /api/v1/me/cloud-saves/{slug}`; the remote doc wins on conflict, saves debounce ~2 s and flush on pagehide, and localStorage remains the offline cache. Never place credentials or private chat in saves.
+- Guests play locally. Signed in, the status bar shows "Playing as <nickname> · cloud <state>" (`StarHermit.profile()`, fallback "Player <id>").
+- Preferences (volumes, quality/graphics, reduced motion, high contrast, large text, left-handed, hold-to-move, haptics, palette, camera, tutorial hints) are mirrored to the platform settings KV with a debounced `patchSettings` of changed keys; at start the platform values win over local ones.
+- Keyboard actions are declared as `control.*` lines (`KeyboardEvent.code`); at start `StarHermit.loadBindings()` applies the player's platform overrides, keydown is routed by `event.code`, and the Help cards show the effective keys. There is no in-game rebinding UI; touch stays responsive UI.
+- Cloud save: the checksummed progress doc lives in the `game:<slug>` slot via `saveJSON`/`loadJSON`, loaded remote-first at start (an empty slot is seeded from the local cache), saved with a ~2 s debounce and flushed with keepalive on `pagehide`/hidden. localStorage remains the offline cache.
+- Signed in, the title shows a localized "Invite a friend" button that copies `StarHermit.inviteLink()` to the clipboard with a confirmation toast.
 
 ### Discovery, activity, and social layer
-- Hosted multiplayer uses StarHermit realtime rooms (host-routed): lobby via REST (create/open, quick-join, leave, result, reconnect via `/rooms/mine`), transport `ws(s)://<host>/ws/v1/realtime?roomId=&access_token=` with 16-byte sender-prefixed binary frames (8 KB cap, guests ≤30 msg/s). The first seat runs the authoritative simulation with the existing rules engine and broadcasts snapshots; other players steer by account id and empty seats are AI. The game's own `server.js` `/ws` protocol remains the local-dev transport.
+- Hosted multiplayer uses StarHermit realtime rooms (host-routed): lobby via REST through the SDK (`realtime.createRoom`/`open`/`quickJoin`, plus leave, result and reconnect via `/rooms/mine`), transport `realtime.socketUrl()` (`/ws/v1/realtime?roomId=&access_token=`) with 16-byte sender-prefixed binary frames (8 KB cap, guests ≤30 msg/s). The first seat runs the authoritative simulation with the existing rules engine and broadcasts snapshots; other players steer by account id and empty seats are AI. The client never connects to `server.js`'s own `/ws` protocol.
 - Text chat belongs in a collapsible, moderated panel with block/report hooks, unread state, a 10-message-per-minute-aware composer, and no chat over critical controls. (Not yet wired.)
 - Offer voice rooms only as an explicit opt-in after joining a compatible conversation. Default muted, expose speaking/mute indicators, and provide leave/report controls. Core rules must never require voice.
 

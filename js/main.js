@@ -8,6 +8,7 @@ import { ui } from './ui.js';
 import * as audio from './audio.js';
 import * as platform from './platform.js?v=d149b156';
 import { RoomsClient } from './net.js?v=d149b156';
+import { shText } from './sh-i18n.js';
 import { STAGES, LESSONS, dailyChallenge, themeById, CONTENT_VERSION } from './content.js';
 import { PHASE, rankPlayers, legalDirections, makeEnvelope, dailySeed, createGame, initHash, step as stepGame } from './rules.js';
 
@@ -29,9 +30,10 @@ const app = {
   mode: null,
   modeData: null,
   streak: 0,
-  hosted: null, // { mode: 'rooms'|'dev', client?, ws?, room, playerId, state }
+  hosted: null, // { mode: 'rooms', client, room, playerId, state }
   lastTickApplied: -1,
   pausedByHidden: false,
+  bindings: platform.DEFAULT_BINDINGS, // replaced by platform.loadBindings() at boot
 };
 
 function setPhase(p) { app.phase = p; }
@@ -48,7 +50,28 @@ function boot() {
   // Platform handshake runs on every boot path (even the no-WebGL fallback):
   // profile nickname + remote-preferred cloud save when a launch token was read.
   platform.onSyncStatus(() => ui.setPlayerStatus(platform.accountLine()));
-  platform.initHosted().then((remoteApplied) => {
+  platform.onAuth((a) => {
+    if (!a.signedIn) toast(shText('signedOut'), 4000);
+    refreshAccountButtons();
+    ui.setPlayerStatus(platform.accountLine());
+  });
+  $('btn-signin').textContent = shText('signIn');
+  $('btn-invite').textContent = shText('invite');
+  refreshAccountButtons();
+  $('btn-signin').addEventListener('click', () => platform.signIn());
+  $('btn-invite').addEventListener('click', copyInvite);
+  platform.initHosted().then(async (remoteApplied) => {
+    // Platform-stored preferences (adopted by initHosted) win over local ones.
+    const adopted = platform.loadSettings();
+    if (platform.isHosted() && JSON.stringify(adopted) !== JSON.stringify(app.settings)) {
+      Object.assign(app.settings, adopted);
+      ui.applyAccessibility();
+      applyQuality();
+      audio.updateSettings(app.settings); // no AudioContext before a gesture
+    }
+    app.bindings = await platform.loadBindings();
+    ui.setBindings(app.bindings);
+    refreshAccountButtons();
     if (remoteApplied) {
       app.progress = platform.loadProgress();
       ui.updateRails(null, null, app.progress);
@@ -57,9 +80,6 @@ function boot() {
     updateDailyLabel();
     ui.setPlayerStatus(platform.accountLine());
   });
-  platform.syncServerTime(); // dev-server time probe; no-op when platform-hosted
-  platform.startPresence();
-  platform.track('start');
 
   const host = $('canvas-host');
   app.renderer = new Renderer(host);
@@ -98,7 +118,7 @@ function progressSummary() {
 
 function updateDailyLabel() {
   const d = dailySeed(new Date(platform.serverNow()));
-  $('btn-daily').textContent = 'Daily Challenge — ' + d.day + (platform.isTimeSynced() ? '' : ' (local clock)');
+  $('btn-daily').textContent = 'Daily Challenge — ' + d.day;
 }
 
 function reducedMotion() {
@@ -157,7 +177,7 @@ function onAction(action, payload) {
       if (payload === 'daily') { startDaily(); break; }
       if (payload === 'hosted') {
         setPhase('mode-select');
-        ui.setHostedMode({ rooms: platform.isHosted(), dev: !platform.isHosted() && platform.isTimeSynced() });
+        ui.setHostedMode({ rooms: platform.isHosted() });
         ui.show('hosted');
         break;
       }
@@ -192,7 +212,6 @@ function onAction(action, payload) {
       }
       break;
     case 'camera': app.renderer.resize(); ui.announce('Camera reset.'); break;
-    case 'hosted-join': hostedJoin(payload); break;
     case 'hosted-quickjoin': roomsJoin(false); break;
     case 'hosted-create': roomsJoin(true); break;
     case 'hosted-start':
@@ -332,7 +351,6 @@ function restartRound() {
   else if (md.mode === 'daily') startDaily();
   else if (md.mode === 'challenge') startChallenge(md.challenge);
   else if (md.mode === 'learn') startLesson(md.lesson);
-  platform.track('retry');
 }
 
 function nextRound() {
@@ -414,7 +432,6 @@ function onRoundEnd(state) {
     progressText = 'Practice is unranked; rating unchanged.';
   }
   platform.saveProgress(app.progress);
-  platform.track('round-end', { mode: app.mode, reason: state.reason, won: won });
   audio.play(won ? 'win' : 'lose');
 
   // Save replay envelope for inspection.
@@ -440,11 +457,6 @@ function sendDir(dir) {
     if (H.client.guestSendDir(dir, 'c' + (++H.cmdCounter))) audio.play('input');
     return;
   }
-  if (H && H.ws && H.ws.readyState === 1) {
-    H.ws.send(JSON.stringify({ type: 'dir', dir: dir, cmdId: 'c' + (++H.cmdCounter) }));
-    audio.play('input');
-    return;
-  }
   if (!app.session) return;
   const res = app.session.sendDirection(dir);
   audio.play(res.ok ? 'input' : 'invalid');
@@ -452,22 +464,42 @@ function sendDir(dir) {
   if (res.ok && app.mode === 'learn' && app.lessonStats) app.lessonStats.moves++;
 }
 
+function refreshAccountButtons() {
+  $('btn-signin').hidden = !platform.canSignIn();
+  $('btn-invite').hidden = !platform.inviteLink();
+}
+
+let toastTimer = 0;
+function toast(msg, ms) {
+  const el = $('sh-toast');
+  el.textContent = msg;
+  el.hidden = false;
+  ui.announce(msg);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, ms || 2600);
+}
+
+async function copyInvite() {
+  const url = platform.inviteLink();
+  if (!url) return;
+  try { await navigator.clipboard.writeText(url); toast(shText('copied')); }
+  catch (e) { toast(shText('copyFail', { url: url }), 6000); }
+}
+
 function bindInput() {
-  const keymap = {
-    ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
-    w: 'up', s: 'down', a: 'left', d: 'right', W: 'up', S: 'down', A: 'left', D: 'right',
-  };
+  // Keydown routes through the effective bindings (KeyboardEvent.code).
+  const is = (action, e) => (app.bindings[action] || []).indexOf(e.code) >= 0;
   document.addEventListener('keydown', (e) => {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
-    const dir = keymap[e.key];
+    const dir = ['up', 'down', 'left', 'right'].find((d) => is(d, e));
     if (dir && app.phase === 'active') { e.preventDefault(); sendDir(dir); return; }
-    if ((e.key === 'Escape' || e.key === 'p' || e.key === 'P')) {
+    if (is('pause', e)) {
       if (app.phase === 'active') pauseGame();
       else if (app.phase === 'paused') resumeGame();
       return;
     }
-    if ((e.key === 'u' || e.key === 'U') && app.phase === 'active' && app.mode === 'practice') onAction('undo');
-    if ((e.key === 'c' || e.key === 'C') && app.phase === 'active') onAction('camera');
+    if (is('undo', e) && app.phase === 'active' && app.mode === 'practice') onAction('undo');
+    if (is('camera', e) && app.phase === 'active') onAction('camera');
   });
 
   // One-input confidence: every button press acknowledges with the ui clip.
@@ -547,37 +579,10 @@ function onVisibility() {
 }
 
 // ------------------------------------------------------------------ hosted play
-// Two transports, one message router (hostedMessage):
-// - rooms: StarHermit realtime rooms (host-routed) — platform-hosted only.
-// - dev:   the game's own server.js /ws protocol — local dev only.
-function hostedJoin(room) {
-  if (platform.isHosted()) { roomsJoin(false); return; } // safety: rooms on-platform
-  if (app.hosted) hostedLeave();
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const url = proto + '//' + location.host + '/ws?room=' + encodeURIComponent(room);
-  let ws;
-  try { ws = new WebSocket(url); } catch (e) { ui.setHostedStatus('Cannot open WebSocket: ' + e.message); return; }
-  app.hosted = { mode: 'dev', ws: ws, room: room, playerId: null, cmdCounter: 0, state: null, alive: false };
-  ui.setHostedStatus('Connecting to room "' + room + '"…');
-
-  ws.onopen = () => {
-    ws.send(JSON.stringify({ type: 'join', name: platform.getDisplayName() || 'You' }));
-  };
-  ws.onmessage = (e) => {
-    let msg;
-    try { msg = JSON.parse(e.data); } catch (err) { return; }
-    hostedMessage(msg);
-  };
-  ws.onclose = () => {
-    if (app.hosted && app.hosted.mode === 'dev' && app.hosted.ws === ws) {
-      hostedMessage({ type: 'closed' });
-    }
-  };
-  ws.onerror = () => ui.setHostedStatus('Connection failed. Is the server running?');
-}
-
+// StarHermit realtime rooms (host-routed) — signed-in only; the hosted screen
+// shows an unavailable note standalone.
 async function roomsJoin(asHost) {
-  if (!platform.isHosted()) { hostedJoin('lobby'); return; }
+  if (!platform.isHosted()) return;
   if (app.hosted) hostedLeave();
   const client = new RoomsClient(platform);
   app.hosted = { mode: 'rooms', client: client, room: null, playerId: null, cmdCounter: 0, state: null, alive: false };
@@ -646,11 +651,7 @@ function hostedMessage(msg) {
 }
 
 function hostedLeave() {
-  if (app.hosted && app.hosted.mode === 'rooms' && app.hosted.client) {
-    app.hosted.client.leave();
-  } else if (app.hosted && app.hosted.ws) {
-    try { app.hosted.ws.close(); } catch (e) {}
-  }
+  if (app.hosted && app.hosted.client) app.hosted.client.leave();
   app.hosted = null;
 }
 

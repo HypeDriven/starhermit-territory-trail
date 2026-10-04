@@ -15,13 +15,9 @@
  * every action (keyboard press / touch tap) is a real input on visible
  * controls. No game code is modified; no move is performed via the API.
  *
- * Serving: this build runs the whole solo game client-side (Session +
- * rules.js advance on the rAF loop); the only guaranteed host route is
- * /api/v1/time, which platform.js probes once at boot and falls back to a
- * local clock on failure. We serve the app with a self-contained
- * node:http static server and answer /api/v1/time (and any other /api/*)
- * with a harmless payload so the UI boots cleanly. Hosted/multiplayer
- * (server.js + WebSocket) is out of scope for this solo playthrough.
+ * Serving: a self-contained node:http static server (unknown paths 404).
+ * Standalone (no launch token) the game must make zero same-origin /api or
+ * /ws requests; every pass records any such request as an error.
  *
  * Run: node tests/e2e.mjs  (or npm run test:e2e)
  */
@@ -56,19 +52,6 @@ const MIME = {
 const server = http.createServer(async (req, res) => {
   try {
     const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-    // Host-only routes: the page probes /api/v1/time at boot; serve it so
-    // the UI boots as "hosted" (telemetry/presence only). Everything else
-    // stays a harmless no-op — the solo game does not use it.
-    if (pathname.startsWith('/api/')) {
-      if (pathname === '/api/v1/time') {
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ now: Date.now() }));
-        return;
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-      res.end('{}');
-      return;
-    }
     const filePath = pathname === '/' ? path.join(ROOT, 'index.html') : path.join(ROOT, pathname);
     if (!filePath.startsWith(ROOT)) { res.writeHead(403).end('forbidden'); return; }
     const data = await readFile(filePath);
@@ -154,11 +137,20 @@ async function startJourney(page) {
   return { obj };
 }
 
+// Standalone must never call the game's own server routes (/api, /ws).
+function watchOwnServer(page, errors) {
+  page.on('request', (r) => {
+    const u = new URL(r.url());
+    if (u.origin === BASE_URL && /^\/(api|ws)(\/|$)/.test(u.pathname)) errors.push(`standalone own-server request: ${u.pathname}`);
+  });
+}
+
 // ---------- one full desktop pass ----------
 async function runDesktop(browser, name) {
   const errors = [];
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
+  watchOwnServer(page, errors);
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
     if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`console ${m.type()}: ${m.text()}`);
@@ -251,6 +243,7 @@ async function runMobile(browser, name) {
   const errors = [];
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   const page = await context.newPage();
+  watchOwnServer(page, errors);
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
     if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`console ${m.type()}: ${m.text()}`);
@@ -320,6 +313,7 @@ async function runGraphics(browser, name, ctxOpts) {
   const errors = [];
   const context = await browser.newContext(ctxOpts);
   const page = await context.newPage();
+  watchOwnServer(page, errors);
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
     if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`console ${m.type()}: ${m.text()}`);
