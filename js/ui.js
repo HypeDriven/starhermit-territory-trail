@@ -85,7 +85,13 @@ export const ui = {
       : name === 'results' ? $('btn-retry')
       : name === 'modes' ? document.querySelector('#screen-modes [data-mode]')
       : null;
-    if (focusTarget) focusTarget.focus();
+    if (focusTarget) {
+      // keep the card's heading in view: focusing a button low in a tall card
+      // (Retry on results in short landscape) would scroll it away
+      focusTarget.focus({ preventScroll: true });
+      const card = document.querySelector('#screen-' + name + ' .card');
+      if (card) card.scrollTop = 0;
+    }
   },
 
   showHudOnly() {
@@ -98,14 +104,18 @@ export const ui = {
     this.lastFocus = document.activeElement;
     this.buildSettingsForm();
     $('screen-settings').classList.add('visible');
-    $('btn-settings-close').focus();
+    // focus Done/Close without scrolling the card's heading out of view
+    $('btn-settings-close').focus({ preventScroll: true });
+    $('screen-settings').querySelector('.card').scrollTop = 0;
   },
 
   openHelp() {
     this.lastFocus = document.activeElement;
     this.buildHelp();
     $('screen-help').classList.add('visible');
-    $('btn-help-close').focus();
+    // focus Done/Close without scrolling the card's heading out of view
+    $('btn-help-close').focus({ preventScroll: true });
+    $('screen-help').querySelector('.card').scrollTop = 0;
   },
 
   closeOverlay() {
