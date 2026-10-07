@@ -62,6 +62,7 @@ export class RoomsClient {
     this._intentionalClose = false;
     this._reconnects = 0;
     this._reconnectTimer = null;
+    this.renewing = false;     // true while renewing the token before a reconnect
   }
 
   get myPlayerId() { return this.platform.getUserId(); }
@@ -137,7 +138,15 @@ export class RoomsClient {
     if (this._reconnects >= 5) { this._emit('closed', {}); return; }
     const delay = Math.min(8000, 500 * Math.pow(2, this._reconnects++));
     this._emit('status', { text: 'Connection lost — reconnecting (attempt ' + this._reconnects + ')…' });
-    this._reconnectTimer = setTimeout(() => {
+    this._reconnectTimer = setTimeout(async () => {
+      // A failed reconnect may be an expired launch token (refused before the
+      // upgrade, seen only as 1006): renew first, then rebuild the URL from
+      // the current token. 'retry' backs off without reopening the old URL;
+      // 'relaunch' means the token is dead — stop for good.
+      const renewal = await this._renewForReconnect();
+      if (this._intentionalClose || !this.roomId) return;
+      if (renewal === 'relaunch') { this._authLost(); return; }
+      if (renewal !== 'renewed') { this._scheduleReconnect(); return; }
       this.platform.rooms.mine()
         .then(async (mine) => {
           const rid = roomIdOf(mine);
@@ -150,6 +159,25 @@ export class RoomsClient {
         .catch(() => this._scheduleReconnect());
     }, delay);
     if (this._reconnectTimer && this._reconnectTimer.unref) this._reconnectTimer.unref();
+  }
+
+  async _renewForReconnect() {
+    this.renewing = true;
+    try { return await this.platform.rooms.renewForReconnect(); } catch (e) { return 'retry'; } finally { this.renewing = false; }
+  }
+
+  /** Renewal refused: drop the room locally (REST would 401) and surface relaunch. */
+  _authLost() {
+    this._stopTimer();
+    this.game = null;
+    this.participants = [];
+    this._senderPlayer.clear();
+    this.roomId = null;
+    this._intentionalClose = true;
+    this._reconnectTimer = null;
+    try { if (this.ws) this.ws.close(); } catch (e) { /* already closed */ }
+    this.ws = null;
+    this._emit('auth-lost', {});
   }
 
   _sendControl(obj) {

@@ -51,12 +51,18 @@ function boot() {
   // profile nickname + remote-preferred cloud save when a launch token was read.
   platform.onSyncStatus(() => ui.setPlayerStatus(platform.accountLine()));
   platform.onAuth((a) => {
-    if (!a.signedIn) toast(shText('signedOut'), 4000);
+    // A refused renewal before a room reconnect shows the expired screen instead.
+    const renewing = app.hosted && app.hosted.client && app.hosted.client.renewing;
+    if (!a.signedIn && !renewing) toast(shText('signedOut'), 4000);
     refreshAccountButtons();
     ui.setPlayerStatus(platform.accountLine());
   });
   $('btn-signin').textContent = shText('signIn');
   $('btn-invite').textContent = shText('invite');
+  $('expired-h').textContent = shText('expiredTitle');
+  $('expired-body').textContent = shText('expiredBody');
+  $('btn-relaunch').textContent = shText('relaunch');
+  $('btn-expired-local').textContent = shText('playLocal');
   refreshAccountButtons();
   $('btn-signin').addEventListener('click', () => platform.signIn());
   $('btn-invite').addEventListener('click', copyInvite);
@@ -221,6 +227,9 @@ function onAction(action, payload) {
       hostedLeave();
       ui.setHostedStartVisible(false, false);
       ui.setHostedStatus(platform.isHosted() ? 'Left the room.' : 'Not connected.');
+      break;
+    case 'relaunch':
+      if (!platform.relaunch()) toast(shText('signedOut'), 4000);
       break;
     case 'overlay-closed': break;
     case 'settings-changed':
@@ -595,6 +604,7 @@ async function roomsJoin(asHost) {
   client.on('end', (m) => hostedMessage({ type: 'end', state: m.state, rank: m.rank }));
   client.on('error', (m) => hostedMessage({ type: 'error', message: m.message }));
   client.on('closed', () => hostedMessage({ type: 'closed' }));
+  client.on('auth-lost', () => hostedMessage({ type: 'auth-lost' }));
   try {
     const ok = asHost ? await client.createAndOpen() : await client.quickJoin();
     if (!ok || !app.hosted || app.hosted.client !== client) { app.hosted = null; return; } // honest note already shown
@@ -644,6 +654,13 @@ function hostedMessage(msg) {
     hostedLeave();
   } else if (msg.type === 'error') {
     ui.setHostedStatus(typeof msg.message === 'string' ? msg.message : 'Room error.');
+  } else if (msg.type === 'auth-lost') {
+    // Launch token dead: reconnecting stopped; offer a fresh launch.
+    app.hosted = null;
+    ui.setHostedStartVisible(false, false);
+    ui.setHostedStatus(shText('expiredTitle'));
+    goHome();
+    ui.show('expired');
   } else if (msg.type === 'closed') {
     ui.setHostedStatus('Disconnected.');
     if (app.phase === 'active') { pauseGame(); ui.setStatus('Hosted — reconnecting', ''); }

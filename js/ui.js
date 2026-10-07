@@ -9,7 +9,7 @@ import { gfxStrings } from './gfx-i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
-const SCREENS = ['title', 'modes', 'setup', 'countdown', 'pause', 'results', 'settings', 'help', 'hosted'];
+const SCREENS = ['title', 'modes', 'setup', 'countdown', 'pause', 'results', 'settings', 'help', 'hosted', 'expired'];
 
 export const ui = {
   currentScreen: 'title',
@@ -49,6 +49,8 @@ export const ui = {
     $('btn-undo').addEventListener('click', () => onAction('undo'));
     $('btn-camera').addEventListener('click', () => onAction('camera'));
     $('btn-hosted-back').addEventListener('click', () => onAction('home'));
+    $('btn-relaunch').addEventListener('click', () => onAction('relaunch'));
+    $('btn-expired-local').addEventListener('click', () => onAction('home'));
     $('btn-hosted-quickjoin').addEventListener('click', () => onAction('hosted-quickjoin'));
     $('btn-hosted-create').addEventListener('click', () => onAction('hosted-create'));
     $('btn-hosted-start').addEventListener('click', () => onAction('hosted-start'));
@@ -83,6 +85,7 @@ export const ui = {
     const focusTarget = name === 'title' ? $('btn-play')
       : name === 'pause' ? $('btn-resume')
       : name === 'results' ? $('btn-retry')
+      : name === 'expired' ? $('btn-relaunch')
       : name === 'modes' ? document.querySelector('#screen-modes [data-mode]')
       : null;
     if (focusTarget) {

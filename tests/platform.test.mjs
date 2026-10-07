@@ -19,12 +19,14 @@ function memStorage() {
 }
 
 let n = 0;
-async function setup(hash, hostname = 'trail-test.starhermit.com') {
+async function setup(hash, hostname = 'trail-test.starhermit.com', extra = null) {
   const calls = [], store = new Map();
   const fetch = async (url, init = {}) => {
     calls.push({ url, method: init.method || 'GET', body: init.body, auth: init.headers?.Authorization });
     const path = url.split('?')[0];
     const json = (o) => new Response(JSON.stringify(o));
+    const hit = extra && extra(path, init);
+    if (hit) return hit;
     if (path.endsWith('/profile')) return json({ nickname: 'Trailblazer' });
     if (path.includes('/cloud-saves/')) {
       if (init.method === 'PUT') { store.set(path, JSON.parse(init.body).dataBase64); return new Response(null, { status: 204 }); }
@@ -104,4 +106,80 @@ test('sign-in offered on the platform host without a token', async () => {
   const { p, calls } = await setup('');
   assert.equal(p.canSignIn(), true);
   assert.equal(calls.length, 0);
+});
+
+// ---------------------------------------------------------------- reconnect renews the token first
+const JWT2 = `x.${b64url({ sub: 'u-12345678', game_scope: 'trail-test', exp: Math.floor(Date.now() / 1000) + 7200 })}.y`;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+class MockWS {
+  constructor(url) { this.url = url; this.readyState = 0; MockWS.all.push(this); queueMicrotask(() => { this.readyState = 1; this.onopen && this.onopen(); }); }
+  send() {}
+  close() { this.readyState = 3; this.onclose && this.onclose({ code: 1006 }); }
+}
+
+async function hostedRoom(renew) {
+  const { p, calls, sh } = await setup('#game_token=' + JWT, undefined, (path, init) => {
+    if (path.endsWith('/launch-token')) return renew();
+    if (path.endsWith('/realtime/rooms') && init.method === 'POST') return new Response(JSON.stringify({ id: 'room-1' }));
+    if (path.endsWith('/realtime/rooms/room-1/open')) return new Response(null, { status: 204 });
+    if (path.endsWith('/realtime/rooms/mine')) return new Response(JSON.stringify({ roomId: 'room-1' }));
+    return null;
+  });
+  MockWS.all = [];
+  globalThis.WebSocket = MockWS;
+  const { RoomsClient } = await import('../js/net.js');
+  const c = new RoomsClient(p);
+  await c.createAndOpen();
+  return { p, c, sh, calls, first: MockWS.all[0] };
+}
+
+test('reconnect renews the token first and reopens with the new token', async () => {
+  const { c, sh, calls, first } = await hostedRoom(() => new Response(JSON.stringify({ token: JWT2 })));
+  assert.match(first.url, new RegExp('access_token=' + encodeURIComponent(JWT).replace(/[.]/g, '\\.')));
+  first.close();
+  await wait(700);
+  const renewAt = calls.findIndex((x) => x.url.endsWith('/launch-token'));
+  const mineAt = calls.findIndex((x) => x.url.endsWith('/realtime/rooms/mine'));
+  assert.ok(renewAt >= 0 && mineAt > renewAt, 'renewal precedes the room lookup');
+  assert.equal(MockWS.all.length, 2);
+  assert.ok(MockWS.all[1].url.includes('access_token=' + encodeURIComponent(JWT2)));
+  c.leave();
+  sh.signOut();
+});
+
+test("renewal 'retry' backs off without reopening the old URL", async () => {
+  const { c, sh, calls, first } = await hostedRoom(() => new Response(null, { status: 503 }));
+  const status = [];
+  c.on('status', (m) => status.push(m.text));
+  first.close();
+  await wait(700);
+  assert.equal(MockWS.all.length, 1, 'no socket reopened');
+  assert.ok(!calls.some((x) => x.url.endsWith('/realtime/rooms/mine')));
+  assert.equal(status.filter((t) => /reconnecting/.test(t)).length, 2, 'scheduled another backoff attempt');
+  assert.equal(c.roomId, 'room-1');
+  c.leave();
+  sh.signOut();
+});
+
+test("renewal 'relaunch' stops reconnecting and surfaces auth-lost", async () => {
+  const { p, c, first } = await hostedRoom(() => new Response(null, { status: 401 }));
+  let lost = 0;
+  c.on('auth-lost', () => { lost++; });
+  first.close();
+  await wait(700);
+  assert.equal(lost, 1);
+  assert.equal(c.roomId, null);
+  assert.equal(p.isHosted(), false, 'SDK signed out');
+  assert.equal(MockWS.all.length, 1, 'no socket reopened');
+  assert.equal(typeof p.relaunch, 'function');
+  await wait(1200);
+  assert.equal(MockWS.all.length, 1, 'stays stopped');
+});
+
+test('session-expired strings exist in every locale', async () => {
+  const { SH_STRINGS } = await import('../js/sh-i18n.js');
+  for (const [loc, t] of Object.entries(SH_STRINGS)) {
+    for (const k of ['expiredTitle', 'expiredBody', 'relaunch', 'playLocal']) assert.ok(t[k], loc + '.' + k);
+  }
 });

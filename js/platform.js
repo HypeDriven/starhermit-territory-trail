@@ -86,7 +86,12 @@ export const rooms = {
   leave: (roomId) => SH.api('/api/v1/realtime/rooms/' + encodeURIComponent(roomId) + '/leave', { method: 'POST' }),
   result: (roomId, result) => SH.api('/api/v1/realtime/rooms/' + encodeURIComponent(roomId) + '/result', { method: 'POST', body: { result: result } }),
   socketUrl: (roomId) => SH.realtime.socketUrl(roomId),
+  /** Before every socket REconnect: 'renewed' | 'retry' | 'relaunch' (token dead, signed out). */
+  renewForReconnect: () => (SH ? SH.renewForReconnect() : Promise.resolve('relaunch')),
 };
+
+/** Back to the launcher / sign-in for a fresh token; call from a click. False if refused. */
+export function relaunch() { return !!(SH && SH.relaunch()); }
 
 // ---------------------------------------------------------------- profile
 
