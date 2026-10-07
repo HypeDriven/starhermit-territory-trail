@@ -1,11 +1,12 @@
 // sh-i18n.js — strings for the StarHermit platform controls (sign-in,
-// invite, session expired) in every supported locale, picked from navigator.language.
+// invite, session expired, results leaderboard line) in every supported locale, picked from navigator.language.
 const en = {
   signIn: 'Sign in with StarHermit', invite: 'Invite a friend',
   copied: 'Invite link copied to the clipboard', copyFail: 'Copy this invite link: {url}',
   signedOut: 'Signed out — progress stays on this device',
   expiredTitle: 'Your session expired', expiredBody: 'Your StarHermit session ended, so the room connection stopped. Go back to StarHermit to start a fresh session.',
   relaunch: 'Back to StarHermit', playLocal: 'Play on this device',
+  lbPosting: 'Posting score to the leaderboard…', lbRank: 'Leaderboard rank: #{rank}', lbPosted: 'Score posted to the leaderboard.', lbNotPosted: 'Score not posted to the leaderboard.',
 };
 const es = {
   signIn: 'Iniciar sesión con StarHermit', invite: 'Invitar a un amigo',
@@ -13,6 +14,7 @@ const es = {
   signedOut: 'Sesión cerrada: el progreso se queda en este dispositivo',
   expiredTitle: 'Tu sesión expiró', expiredBody: 'Tu sesión de StarHermit terminó y se detuvo la conexión con la sala. Vuelve a StarHermit para iniciar una nueva sesión.',
   relaunch: 'Volver a StarHermit', playLocal: 'Jugar en este dispositivo',
+  lbPosting: 'Publicando la puntuación en la clasificación…', lbRank: 'Puesto en la clasificación: #{rank}', lbPosted: 'Puntuación publicada en la clasificación.', lbNotPosted: 'No se pudo publicar la puntuación en la clasificación.',
 };
 const fr = {
   signIn: 'Se connecter avec StarHermit', invite: 'Inviter un ami',
@@ -20,23 +22,26 @@ const fr = {
   signedOut: 'Déconnecté — la progression reste sur cet appareil',
   expiredTitle: 'Votre session a expiré', expiredBody: 'Votre session StarHermit est terminée, la connexion à la salle a donc été interrompue. Retournez sur StarHermit pour démarrer une nouvelle session.',
   relaunch: 'Retour à StarHermit', playLocal: 'Jouer sur cet appareil',
+  lbPosting: 'Envoi du score au classement…', lbRank: 'Rang au classement : #{rank}', lbPosted: 'Score envoyé au classement.', lbNotPosted: 'Score non envoyé au classement.',
 };
 export const SH_STRINGS = {
-  'en-US': en, 'en-GB': en, 'es-419': es, 'es-ES': es,
+  'en-US': en, 'en-GB': en, 'es-419': es, 'es-ES': { ...es, lbNotPosted: 'No se ha podido publicar la puntuación en la clasificación.' },
   'de-DE': {
     signIn: 'Mit StarHermit anmelden', invite: 'Freund einladen',
     copied: 'Einladungslink in die Zwischenablage kopiert', copyFail: 'Kopiere diesen Einladungslink: {url}',
     signedOut: 'Abgemeldet – der Fortschritt bleibt auf diesem Gerät',
     expiredTitle: 'Deine Sitzung ist abgelaufen', expiredBody: 'Deine StarHermit-Sitzung ist beendet, daher wurde die Raumverbindung getrennt. Kehre zu StarHermit zurück, um eine neue Sitzung zu starten.',
     relaunch: 'Zurück zu StarHermit', playLocal: 'Auf diesem Gerät spielen',
+    lbPosting: 'Punktzahl wird in die Bestenliste eingetragen…', lbRank: 'Platz in der Bestenliste: #{rank}', lbPosted: 'Punktzahl in die Bestenliste eingetragen.', lbNotPosted: 'Punktzahl wurde nicht in die Bestenliste eingetragen.',
   },
-  'fr-FR': fr, 'fr-CA': fr,
+  'fr-FR': fr, 'fr-CA': { ...fr, lbPosting: 'Envoi du pointage au classement…', lbPosted: 'Pointage envoyé au classement.', lbNotPosted: 'Pointage non envoyé au classement.' },
   'pt-BR': {
     signIn: 'Entrar com StarHermit', invite: 'Convidar um amigo',
     copied: 'Link de convite copiado para a área de transferência', copyFail: 'Copie este link de convite: {url}',
     signedOut: 'Sessão encerrada — o progresso fica neste dispositivo',
     expiredTitle: 'Sua sessão expirou', expiredBody: 'Sua sessão do StarHermit terminou e a conexão com a sala foi interrompida. Volte ao StarHermit para iniciar uma nova sessão.',
     relaunch: 'Voltar ao StarHermit', playLocal: 'Jogar neste dispositivo',
+    lbPosting: 'Enviando pontuação para o placar…', lbRank: 'Posição no placar: #{rank}', lbPosted: 'Pontuação enviada para o placar.', lbNotPosted: 'A pontuação não foi enviada para o placar.',
   },
   'it-IT': {
     signIn: 'Accedi con StarHermit', invite: 'Invita un amico',
@@ -44,6 +49,7 @@ export const SH_STRINGS = {
     signedOut: 'Disconnesso: i progressi restano su questo dispositivo',
     expiredTitle: 'La tua sessione è scaduta', expiredBody: 'La tua sessione StarHermit è terminata, quindi la connessione alla stanza si è interrotta. Torna su StarHermit per avviare una nuova sessione.',
     relaunch: 'Torna a StarHermit', playLocal: 'Gioca su questo dispositivo',
+    lbPosting: 'Invio del punteggio alla classifica…', lbRank: 'Posizione in classifica: #{rank}', lbPosted: 'Punteggio inviato alla classifica.', lbNotPosted: 'Punteggio non inviato alla classifica.',
   },
 };
 const BY_LANG = { en: 'en-US', es: 'es-419', de: 'de-DE', fr: 'fr-FR', pt: 'pt-BR', it: 'it-IT' };

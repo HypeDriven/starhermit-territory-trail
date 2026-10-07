@@ -191,7 +191,7 @@ No module may mutate rules state except through a validated command. Rendering c
 ## 6. StarHermit integration
 
 ### Packaging and launch
-- Ships `starhermit.txt` (`name=Territory Trail`, `launch=index.html`, `control.*` key declarations) and a copy of the canonical `starhermit-sdk.js`, loaded by `index.html` before the game modules. `js/platform.js` is a thin adapter over `window.StarHermit`: it calls `StarHermit.init()` on load, which reads `#game_token=` (library launch) or `#access_token=` (direct sign-in return), strips it, takes the slug from the `game_scope` claim and renews the token on the SDK's schedule. Tokens are never persisted.
+- Ships `starhermit.txt` (`name=Territory Trail`, `launch=index.html`, `server=score-script.js`, `control.*` key declarations) and a copy of the canonical `starhermit-sdk.js`, loaded by `index.html` before the game modules. `js/platform.js` is a thin adapter over `window.StarHermit`: it calls `StarHermit.init()` on load, which reads `#game_token=` (library launch) or `#access_token=` (direct sign-in return), strips it, takes the slug from the `game_scope` claim and renews the token on the SDK's schedule. Tokens are never persisted.
 - On `*.starhermit.com` without a token the title shows a localized "Sign in with StarHermit" button (`StarHermit.signIn()`), hidden when signed in and off-platform. If renewal is refused the SDK signs out: the button returns, a localized toast says progress stays on this device, and play continues locally.
 - Without a token the game makes no request to any `/api/…` or `/ws` route, on any host including localhost: the daily challenge uses the local clock, there is no telemetry or presence, and Hosted play shows an unavailable note (the client has no `server.js` room-code transport).
 
@@ -209,8 +209,9 @@ No module may mutate rules state except through a validated command. Rendering c
 - Offer voice rooms only as an explicit opt-in after joining a compatible conversation. Default muted, expose speaking/mute indicators, and provide leave/report controls. Core rules must never require voice.
 
 ### Achievements and leaderboards
-- Declare a small static achievement set: first completion, mechanic mastery, a sustained streak, a difficult content milestone, and an accessibility-neutral long-term goal. Keys are stable, lowercase identifiers; unlocks are idempotent. Achievements stay local (server.js is a dev server, not a Jint game script) and travel inside the cloud-saved progress doc.
-- Personal bests (journey stages, daily) stay local and cloud-saved. The client never submits scores to a game leaderboard and reads no global board (none is declared for this title).
+- Declare a small static achievement set: first completion, mechanic mastery, a sustained streak, a difficult content milestone, and an accessibility-neutral long-term goal. Keys are stable, lowercase identifiers; unlocks are idempotent. Achievements stay local and travel inside the cloud-saved progress doc.
+- Signed in, every finished Journey, Daily or Challenge round posts the local player's total (area + 50 per elimination) through `StarHermit.submitScores` — a practice session whose `score-script.js` (the `server=` platform script; canonical copy in the games repo's `tools/score-script.js`) range-checks it and posts it to the `high-score` board (integer, higher is better, 0–100,000). The results screen shows "Leaderboard rank: #N" (or posted / not posted), localized in the nine locales (`js/sh-i18n.js`). Learn, Practice, hosted room rounds and standalone play post nothing. `server.js` is the local dev server.
+- Personal bests (journey stages, daily) also stay local and cloud-saved.
 
 ### Sessions and transport
 - Realtime Rooms provide lobbies, quick join, AI seats, seat assignment, start, and results; the room host is the authority and reports via `POST /rooms/{id}/result`.

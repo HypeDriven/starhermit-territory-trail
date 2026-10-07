@@ -91,6 +91,21 @@ export const rooms = {
 };
 
 /** Back to the launcher / sign-in for a fresh token; call from a click. False if refused. */
+// Leaderboard: post a finished Journey/Daily/Challenge round to the
+// high-score board (score-script.js); resolves { posted, rank }.
+export async function submitScore(total) {
+  if (!isHosted()) return { posted: false, rank: null };
+  try {
+    const keys = await SH.submitScores({ 'high-score': total });
+    if (!keys || keys.indexOf('high-score') < 0) return { posted: false, rank: null };
+    try {
+      const r = await SH.leaderboard('high-score', { pageSize: 100 });
+      const me = (r.items || []).find((i) => i.userId === SH.userId);
+      return { posted: true, rank: me ? me.rank : null };
+    } catch (e) { return { posted: true, rank: null }; }
+  } catch (e) { return { posted: false, rank: null }; }
+}
+
 export function relaunch() { return !!(SH && SH.relaunch()); }
 
 // ---------------------------------------------------------------- profile

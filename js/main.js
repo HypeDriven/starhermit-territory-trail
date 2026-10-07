@@ -451,6 +451,22 @@ function onRoundEnd(state) {
 
   ui.updateRails(state, 'p1', app.progress);
   ui.showResults(state, 'p1', { rank: rank, unlocked: unlocked, progressText: progressText });
+  postToLeaderboard(local.area + local.eliminations * 50);
+}
+
+// Signed in: Journey, Daily and Challenge rounds post their total to the
+// platform high-score board; the results screen shows the player's rank.
+function postToLeaderboard(total) {
+  const line = $('results-lb');
+  if (!line || !platform.isHosted() || !['journey', 'daily', 'challenge'].includes(app.mode)) return;
+  const session = app.session;
+  line.hidden = false;
+  line.textContent = shText('lbPosting');
+  platform.submitScore(total).then((r) => {
+    if (app.session !== session || !line.isConnected) return;
+    line.textContent = !r.posted ? shText('lbNotPosted')
+      : r.rank ? shText('lbRank', { rank: r.rank }) : shText('lbPosted');
+  });
 }
 
 // ------------------------------------------------------------------ input

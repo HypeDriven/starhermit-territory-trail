@@ -494,6 +494,12 @@ export const ui = {
       p.textContent = extras.progressText;
       body.appendChild(p);
     }
+    const lb = document.createElement('p');
+    lb.id = 'results-lb';
+    lb.className = 'muted';
+    lb.setAttribute('aria-live', 'polite');
+    lb.hidden = true;
+    body.appendChild(lb);
     this.announce(h.textContent + '. ' + reasonP.textContent);
     this.show('results');
   },

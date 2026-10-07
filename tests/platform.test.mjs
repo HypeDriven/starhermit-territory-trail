@@ -98,6 +98,7 @@ test('standalone: no network calls', async () => {
   p.saveProgress(p.loadProgress());
   p.saveSettings(p.loadSettings());
   assert.deepEqual((await p.loadBindings()).undo, ['KeyU']);
+  assert.deepEqual(await p.submitScore(120), { posted: false, rank: null });
   await new Promise((r) => setTimeout(r, 900));
   assert.equal(calls.length, 0);
 });
