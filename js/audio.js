@@ -53,7 +53,7 @@ function playSample(kind) {
   const name = names[(playSample.rot[kind] = ((playSample.rot[kind] || 0) + 1) % names.length)];
   const entry = sfxCache.get(name);
   if (entry instanceof AudioBuffer) {
-    const src = ctx.createBufferSource();
+    const src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createBufferSource(), null) : ctx.createBufferSource());
     src.buffer = entry;
     src.connect(buses.effects);
     src.start();
@@ -81,11 +81,11 @@ function ensureCtx() {
   ctx = new AC();
   const master = ctx.createGain();
   master.connect(ctx.destination);
-  buses.master = master;
+  buses.master = (globalThis.GameOptions ? globalThis.GameOptions.tagBus(master, "master") : master);
   for (const name of ['music', 'effects', 'ambience']) {
     const g = ctx.createGain();
     g.connect(master);
-    buses[name] = g;
+    buses[name] = (globalThis.GameOptions ? globalThis.GameOptions.tagBus(g, name) : g);
   }
   applyVolumes();
   return true;
@@ -110,7 +110,7 @@ export function unlock() {
 function blip(bus, freq, dur, type, gainEnv) {
   if (!ctx) return;
   const t = ctx.currentTime;
-  const osc = ctx.createOscillator();
+  const osc = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createOscillator(), bus) : ctx.createOscillator());
   const g = ctx.createGain();
   osc.type = type || 'sine';
   osc.frequency.setValueAtTime(freq, t);
@@ -128,7 +128,7 @@ function noiseBurst(bus, dur, cutoff, gain) {
   const buf = ctx.createBuffer(1, len, ctx.sampleRate);
   const data = buf.getChannelData(0);
   for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
-  const src = ctx.createBufferSource();
+  const src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createBufferSource(), bus) : ctx.createBufferSource());
   src.buffer = buf;
   const f = ctx.createBiquadFilter();
   f.type = 'lowpass'; f.frequency.value = cutoff;
@@ -162,7 +162,7 @@ function startAmbience() {
   const buf = ctx.createBuffer(1, len, ctx.sampleRate);
   const data = buf.getChannelData(0);
   for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
-  const src = ctx.createBufferSource();
+  const src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createBufferSource(), null) : ctx.createBufferSource());
   src.buffer = buf; src.loop = true;
   const f = ctx.createBiquadFilter();
   f.type = 'lowpass'; f.frequency.value = 240;
