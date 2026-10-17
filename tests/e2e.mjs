@@ -26,6 +26,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchToken, stubStarHermit } from './starhermit-e2e.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHOT = (stage, vp) => path.join(ROOT, 'test-results', `e2e-${stage}-${vp}.png`);
@@ -386,6 +387,78 @@ async function runGraphics(browser, name, ctxOpts) {
   if (errors.length) throw new Error(`${name} graphics pass had console output:\n  ${errors.join('\n  ')}`);
 }
 
+// ---------- language + report pass (signed in, stubbed StarHermit API) ----------
+// Automatic follows the account's preferred language (fr-CA); choosing another
+// language in Settings re-renders visible text live — title, settings, HUD and
+// status badge mid-round — and PUTs ui.language; Report a problem posts to /reports.
+async function runLanguage(browser, name, ctxOpts) {
+  const errors = [];
+  const context = await browser.newContext(ctxOpts);
+  const page = await context.newPage();
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => {
+    if ((m.type() === 'error' || m.type() === 'warning') && !browserNoise.test(m.text())) errors.push(`console ${m.type()}: ${m.text()}`);
+  });
+  const calls = await stubStarHermit(page, { preferredLanguage: 'fr-CA' });
+  await page.goto('about:blank');
+  await page.goto(BASE_URL + '/index.html#game_token=' + launchToken(), { waitUntil: 'load' });
+  await page.waitForSelector('#screen-title.visible', { state: 'visible', timeout: 10000 });
+  await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+  if ((await page.textContent('#btn-play')).trim() !== 'Jouer') throw new Error('title not in fr-CA');
+  await page.click('#btn-settings');
+  await page.waitForSelector('#screen-settings.visible', { state: 'visible' });
+  const choice = page.locator('[data-game-language="choice"]');
+  await choice.scrollIntoViewIfNeeded();
+  const auto = await choice.locator('option').first().textContent();
+  if (auto !== 'Automatique — Français (Canada)') throw new Error(`Automatic label not resolved: "${auto}"`);
+  await choice.selectOption('it-IT');
+  await page.waitForFunction(() => document.documentElement.lang === 'it-IT');
+  await page.waitForFunction(() => /Salvato/.test(document.querySelector('[data-game-language="status"]').textContent));
+  if (calls.settings['ui.language']?.choice !== 'it-IT') throw new Error('ui.language not saved: ' + JSON.stringify(calls.settings));
+  if ((await page.textContent('#settings-h')).trim() !== 'Impostazioni') throw new Error('settings title not re-rendered');
+  if ((await page.textContent('#settings-body [data-i18n="volMusic"]')).trim() !== 'Volume musica') throw new Error('settings labels not re-rendered');
+  if (!/^Auto/.test(await page.locator('#gfx-preset option[value="auto"]').textContent())) throw new Error('graphics section missing');
+  await page.locator('[data-game-report="title"]').scrollIntoViewIfNeeded();
+  await page.fill('[data-game-report="title"]', 'Test report');
+  await page.click('[data-game-report="send"]');
+  await page.waitForFunction(() => /Grazie/.test(document.querySelector('[data-game-report="status"]').textContent));
+  if (!calls.reports?.[0] || calls.reports[0].kind !== 'bug') throw new Error('report not posted');
+  ok(`${name}: Automatic resolved fr-CA from the account; Italian applied live, saved to ui.language; report posted`);
+
+  // German round, then back to Automatic (fr-CA) from the pause menu mid-round.
+  await choice.selectOption('de-DE');
+  await page.waitForFunction(() => document.documentElement.lang === 'de-DE');
+  await page.click('#btn-settings-close');
+  await page.waitForSelector('#screen-settings.visible', { state: 'hidden' });
+  await page.click('#btn-hosted');
+  await page.waitForSelector('#screen-hosted.visible', { state: 'visible' });
+  if (!/Tritt schnell/.test(await page.textContent('#hosted-status'))) throw new Error('hosted status not German');
+  await page.click('#btn-hosted-back');
+  await page.click('#btn-play');
+  if (!(await waitPhase(page, 'active', 15000))) throw new Error('round never active');
+  const badge = (await page.textContent('#status-mode')).trim();
+  if (badge !== 'Reise 1 — Erste Schritte') throw new Error(`status badge not German: "${badge}"`);
+  if (!/^Erobere/.test(await page.textContent('#objective'))) throw new Error('objective not German');
+  await page.screenshot({ path: SHOT('language-de', name) });
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('#screen-pause.visible', { state: 'visible' });
+  await page.click('#btn-pause-settings');
+  await page.waitForSelector('#screen-settings.visible', { state: 'visible' });
+  await page.screenshot({ path: SHOT('language-de-settings', name) });
+  await choice.scrollIntoViewIfNeeded();
+  await choice.selectOption('auto');
+  await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+  if ((await page.textContent('#status-mode')).trim() !== 'Parcours 1 — Premiers pas') throw new Error('status badge not re-rendered in French');
+  if (!/^Conquérez/.test(await page.textContent('#objective'))) throw new Error('objective not re-rendered in French');
+  if ((await page.textContent('#btn-resume')).trim() !== 'Reprendre') throw new Error('pause menu not re-rendered');
+  await page.click('#btn-settings-close');
+  await page.click('#btn-resume');
+  if (!(await waitPhase(page, 'active', 5000))) throw new Error('round did not resume');
+  ok(`${name}: German round labels, then Automatic (fr-CA) re-rendered HUD, badge and pause menu mid-round`);
+  await context.close();
+  if (errors.length) throw new Error(`${name} language pass had console output:\n  ${errors.join('\n  ')}`);
+}
+
 // ---------- main ----------
 const BASE_URL = await new Promise((resolve) => {
   server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`));
@@ -401,6 +474,8 @@ try {
   await runMobile(browser, 'mobile');
   await runGraphics(browser, 'gfx-desktop', { viewport: { width: 1280, height: 800 } });
   await runGraphics(browser, 'gfx-mobile', { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  await runLanguage(browser, 'language-desktop', { viewport: { width: 1280, height: 800 } });
+  await runLanguage(browser, 'language-mobile', { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   console.log('\nE2E PASS — territory-trail, desktop + mobile, no page errors');
 } finally {
   if (browser) await browser.close();

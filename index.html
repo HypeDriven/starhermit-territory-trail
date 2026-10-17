@@ -149,24 +149,25 @@
 <script src="ui-scale.js"></script>
 <script src="browser-guard.js"></script>
 <script src="starhermit-sdk.js"></script>
+<script src="sh-language.js"></script>
 </head>
 <body>
 <div id="app">
   <header id="statusbar" role="banner">
-    <button id="rail-toggle-left" aria-label="Open progress panel">☰</button>
+    <button id="rail-toggle-left" aria-label="Open progress panel" data-i18n-aria="openProgress">☰</button>
     <strong id="status-title">Territory Trail</strong>
     <span id="status-mode" class="badge" aria-live="polite"></span>
     <span id="status-player" class="badge" style="display:none"></span>
     <span class="spacer"></span>
     <span id="status-clock" class="muted"></span>
-    <button id="btn-help" aria-label="Help">?</button>
-    <button id="btn-settings" aria-label="Settings">⚙</button>
-    <button id="rail-toggle-right" aria-label="Open status panel">≡</button>
+    <button id="btn-help" aria-label="Help" data-i18n-aria="help">?</button>
+    <button id="btn-settings" aria-label="Settings" data-i18n-aria="settings">⚙</button>
+    <button id="rail-toggle-right" aria-label="Open status panel" data-i18n-aria="openStatus">≡</button>
   </header>
 
   <div id="main">
-    <aside id="rail-left" aria-label="Progress and objectives">
-      <h2 class="h3">Progress</h2>
+    <aside id="rail-left" aria-label="Progress and objectives" data-i18n-aria="progressPanel">
+      <h2 class="h3">Progress</h2 data-i18n="progressH">
       <div id="rail-journey" class="col"></div>
     </aside>
 
@@ -177,30 +178,30 @@
         <div class="hud-stack">
           <div class="hud-top">
             <div id="objective" role="status"></div>
-            <button id="btn-pause" aria-label="Pause game">⏸</button>
+            <button id="btn-pause" aria-label="Pause game" data-i18n-aria="pauseGame">⏸</button>
           </div>
-          <div id="danger-banner" role="alert">Trail exposed — get home!</div>
+          <div id="danger-banner" role="alert" data-i18n="danger">Trail exposed — get home!</div>
         </div>
         <div id="hud-actions">
-          <button id="btn-undo" class="hidden" style="display:none">↩ Undo</button>
-          <button id="btn-camera">⌂ Camera</button>
+          <button id="btn-undo" class="hidden" style="display:none" data-i18n="undo">↩ Undo</button>
+          <button id="btn-camera" data-i18n="camera">⌂ Camera</button>
         </div>
-        <div id="touch-pad" aria-label="Touch direction controls">
-          <span></span><button data-dir="up" aria-label="Move up">▲</button><span></span>
-          <button data-dir="left" aria-label="Move left">◀</button><span></span><button data-dir="right" aria-label="Move right">▶</button>
-          <span></span><button data-dir="down" aria-label="Move down">▼</button><span></span>
+        <div id="touch-pad" aria-label="Touch direction controls" data-i18n-aria="touchPad">
+          <span></span><button data-dir="up" aria-label="Move up" data-i18n-aria="moveUp">▲</button><span></span>
+          <button data-dir="left" aria-label="Move left" data-i18n-aria="moveLeft">◀</button><span></span><button data-dir="right" aria-label="Move right" data-i18n-aria="moveRight">▶</button>
+          <span></span><button data-dir="down" aria-label="Move down" data-i18n-aria="moveDown">▼</button><span></span>
         </div>
       </div>
 
       <!-- Screens -->
       <section id="screen-title" class="screen" aria-labelledby="title-h">
         <h1 id="title-h" style="font-size:2.2em">Territory Trail</h1>
-        <p class="muted">Leave home. Draw a trail. Close the loop. Claim the land.</p>
-        <button id="btn-play" class="primary" style="font-size:1.2em; padding:0.7em 2.2em">Play</button>
+        <p class="muted">Leave home data-i18n="tagline"> Draw a trail. Close the loop. Claim the land.</p>
+        <button id="btn-play" class="primary" style="font-size:1.2em; padding:0.7em 2.2em" data-i18n="play">Play</button>
         <div class="row">
           <button id="btn-daily">Daily Challenge</button>
-          <button id="btn-learn">Learn</button>
-          <button id="btn-hosted">Hosted Play</button>
+          <button id="btn-learn" data-i18n="learn">Learn</button>
+          <button id="btn-hosted" data-i18n="hostedPlay">Hosted Play</button>
         </div>
         <div class="row">
           <button id="btn-signin" hidden>Sign in with StarHermit</button>
@@ -211,72 +212,72 @@
 
       <section id="screen-modes" class="screen" aria-labelledby="modes-h">
         <div class="card col">
-          <h2 id="modes-h">Choose a mode</h2>
+          <h2 id="modes-h" data-i18n="chooseMode">Choose a mode</h2>
           <div class="grid-list" role="list">
-            <button data-mode="journey" role="listitem"><strong>Journey</strong><br><span class="muted">40 authored stages</span></button>
-            <button data-mode="practice" role="listitem"><strong>Practice</strong><br><span class="muted">Unranked, undo allowed</span></button>
-            <button data-mode="daily" role="listitem"><strong>Daily</strong><br><span class="muted">One seed per UTC day</span></button>
-            <button data-mode="challenge" role="listitem"><strong>Challenge</strong><br><span class="muted">Constrained goals</span></button>
-            <button data-mode="learn" role="listitem"><strong>Learn</strong><br><span class="muted">Interactive lessons</span></button>
-            <button data-mode="hosted" role="listitem"><strong>Hosted</strong><br><span class="muted">Online room</span></button>
+            <button data-mode="journey" role="listitem"><strong data-i18n="modeJourney">Journey</strong><br><span class="muted" data-i18n="modeJourneyDesc">40 authored stages</span></button>
+            <button data-mode="practice" role="listitem"><strong data-i18n="modePractice">Practice</strong><br><span class="muted" data-i18n="modePracticeDesc">Unranked, undo allowed</span></button>
+            <button data-mode="daily" role="listitem"><strong data-i18n="modeDaily">Daily</strong><br><span class="muted" data-i18n="modeDailyDesc">One seed per UTC day</span></button>
+            <button data-mode="challenge" role="listitem"><strong data-i18n="modeChallenge">Challenge</strong><br><span class="muted" data-i18n="modeChallengeDesc">Constrained goals</span></button>
+            <button data-mode="learn" role="listitem"><strong data-i18n="modeLearn">Learn</strong><br><span class="muted" data-i18n="modeLearnDesc">Interactive lessons</span></button>
+            <button data-mode="hosted" role="listitem"><strong data-i18n="modeHosted">Hosted</strong><br><span class="muted" data-i18n="modeHostedDesc">Online room</span></button>
           </div>
-          <button id="btn-modes-back">Back</button>
+          <button id="btn-modes-back" data-i18n="back">Back</button>
         </div>
       </section>
 
       <section id="screen-setup" class="screen" aria-labelledby="setup-h">
         <div class="card col">
-          <h2 id="setup-h">Setup</h2>
+          <h2 id="setup-h" data-i18n="setup">Setup</h2>
           <div id="setup-body" class="col"></div>
           <div class="row">
-            <button id="btn-setup-start" class="primary">Start</button>
-            <button id="btn-setup-back">Back</button>
+            <button id="btn-setup-start" class="primary" data-i18n="start">Start</button>
+            <button id="btn-setup-back" data-i18n="back">Back</button>
           </div>
         </div>
       </section>
 
-      <section id="screen-countdown" class="screen" aria-label="Round starting">
+      <section id="screen-countdown" class="screen" aria-label="Round starting" data-i18n-aria="roundStarting">
         <div id="countdown-num" style="font-size:5em; font-weight:800" role="status">3</div>
       </section>
 
       <section id="screen-pause" class="screen" aria-labelledby="pause-h">
         <div class="card col">
-          <h2 id="pause-h">Paused</h2>
-          <button id="btn-resume" class="primary">Resume</button>
+          <h2 id="pause-h" data-i18n="paused">Paused</h2>
+          <button id="btn-resume" class="primary" data-i18n="resume">Resume</button>
           <div class="row">
-            <button id="btn-pause-settings">Settings</button>
-            <button id="btn-pause-help">Help</button>
-            <button id="btn-restart">Restart</button>
-            <button id="btn-leave" class="danger">Leave round</button>
+            <button id="btn-pause-settings" data-i18n="settings">Settings</button>
+            <button id="btn-pause-help" data-i18n="help">Help</button>
+            <button id="btn-restart" data-i18n="restart">Restart</button>
+            <button id="btn-leave" class="danger" data-i18n="leaveRound">Leave round</button>
           </div>
         </div>
       </section>
 
       <section id="screen-results" class="screen" aria-labelledby="results-h">
         <div class="card col">
-          <h2 id="results-h">Results</h2>
+          <h2 id="results-h" data-i18n="results">Results</h2>
           <div id="results-body" class="col"></div>
           <div class="row">
-            <button id="btn-retry" class="primary">Retry</button>
-            <button id="btn-results-next">Next</button>
-            <button id="btn-results-home">Home</button>
+            <button id="btn-retry" class="primary" data-i18n="retry">Retry</button>
+            <button id="btn-results-next" data-i18n="next">Next</button>
+            <button id="btn-results-home" data-i18n="home">Home</button>
           </div>
         </div>
       </section>
 
       <section id="screen-settings" class="screen" aria-labelledby="settings-h">
         <div class="card col">
-          <h2 id="settings-h">Settings</h2>
+          <h2 id="settings-h" data-i18n="settings">Settings</h2>
           <div id="settings-body" class="col"></div>
-          <button id="btn-settings-close" class="primary">Done</button>
+          <button id="btn-settings-close" class="primary" data-i18n="done">Done</button>
         </div>
       </section>
 
       <section id="screen-help" class="screen" aria-labelledby="help-h">
         <div class="card col">
-          <h2 id="help-h">How to play</h2>
+          <h2 id="help-h" data-i18n="howToPlay">How to play</h2>
           <div id="help-body" class="col"></div>
-          <button id="btn-help-close" class="primary">Close</button>
+          <button id="btn-help-close" class="primary" data-i18n="close">Close</button>
         </div>
       </section>
 
@@ -291,31 +292,31 @@
 
       <section id="screen-hosted" class="screen" aria-labelledby="hosted-h">
         <div class="card col">
-          <h2 id="hosted-h">Hosted play</h2>
+          <h2 id="hosted-h" data-i18n="hostedTitle">Hosted play</h2>
           <div id="hosted-status" class="muted">Not connected.</div>
           <div id="hosted-rooms-ui" class="col" style="display:none">
             <div class="row">
-              <button id="btn-hosted-quickjoin" class="primary">Quick join</button>
-              <button id="btn-hosted-create">Create room</button>
+              <button id="btn-hosted-quickjoin" class="primary" data-i18n="quickJoin">Quick join</button>
+              <button id="btn-hosted-create" data-i18n="createRoom">Create room</button>
             </div>
             <div class="row">
-              <button id="btn-hosted-start" class="primary" style="display:none">Start round</button>
-              <button id="btn-hosted-leave" style="display:none">Leave room</button>
+              <button id="btn-hosted-start" class="primary" style="display:none" data-i18n="startRound">Start round</button>
+              <button id="btn-hosted-leave" style="display:none" data-i18n="leaveRoom">Leave room</button>
             </div>
-            <p class="muted">Online rooms run on StarHermit realtime: the first seat simulates the round,
+            <p class="muted" data-i18n="hostedInfo">Online rooms run on StarHermit realtime: the first seat simulates the round,
               everyone else steers their marker. Empty seats are filled by rivals. Late joiners spectate
               the live round and play the next one.</p>
           </div>
-          <p id="hosted-offline-note" class="muted" style="display:none">Hosted play needs a StarHermit
+          <p id="hosted-offline-note" class="muted" style="display:none" data-i18n="hostedOffline">Hosted play needs a StarHermit
             launch (online).</p>
           <div id="hosted-roster" class="col"></div>
-          <button id="btn-hosted-back">Back</button>
+          <button id="btn-hosted-back" data-i18n="back">Back</button>
         </div>
       </section>
     </div>
 
-    <aside id="rail-right" aria-label="Score and status">
-      <h2 class="h3">Status</h2>
+    <aside id="rail-right" aria-label="Score and status" data-i18n-aria="statusPanel">
+      <h2 class="h3">Status</h2 data-i18n="statusH">
       <div id="rail-status" class="col"></div>
     </aside>
   </div>
@@ -324,8 +325,8 @@
 <div id="drawer-backdrop"></div>
 <div id="sr-announcer" aria-live="polite"></div>
 <div id="sh-toast" role="status" hidden></div>
-<div id="board-mirror" role="region" aria-label="Board summary" tabindex="0"></div>
+<div id="board-mirror" role="region" aria-label="Board summary" data-i18n-aria="boardSummary" tabindex="0"></div>
 <noscript><p style="padding:2em">Territory Trail requires JavaScript.</p></noscript>
-<script type="module" src="./js/main.js?v=d149b156"></script>
+<script type="module" src="./js/main.js?v=l10n1017"></script>
 </body>
 </html>

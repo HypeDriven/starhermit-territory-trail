@@ -6,9 +6,13 @@ import { Session, TICK_MS } from './session.js';
 import { Renderer } from './render.js';
 import { ui } from './ui.js';
 import * as audio from './audio.js';
-import * as platform from './platform.js?v=d149b156';
-import { RoomsClient } from './net.js?v=d149b156';
+import * as platform from './platform.js?v=l10n1017';
+import { RoomsClient } from './net.js?v=l10n1017';
 import { shText } from './sh-i18n.js';
+import { t, locale, onLanguage, stageName, stageGoal, lessonTitle, lessonText, difficultyName, challengeName, challengeGoal, rejectReason, dirName, endReason } from './i18n.js';
+
+// Platform-control strings (sh-i18n.js) in the game language.
+const sh = (key, vars) => shText(key, vars || {}, locale());
 import { STAGES, LESSONS, dailyChallenge, themeById, CONTENT_VERSION } from './content.js';
 import { PHASE, rankPlayers, legalDirections, makeEnvelope, dailySeed, createGame, initHash, step as stepGame } from './rules.js';
 
@@ -34,6 +38,7 @@ const app = {
   lastTickApplied: -1,
   pausedByHidden: false,
   bindings: platform.DEFAULT_BINDINGS, // replaced by platform.loadBindings() at boot
+  hudText: null, // { goal(), label() } for the HUD objective + status badge, re-rendered on a language change
 };
 
 function setPhase(p) { app.phase = p; }
@@ -53,19 +58,21 @@ function boot() {
   platform.onAuth((a) => {
     // A refused renewal before a room reconnect shows the expired screen instead.
     const renewing = app.hosted && app.hosted.client && app.hosted.client.renewing;
-    if (!a.signedIn && !renewing) toast(shText('signedOut'), 4000);
+    if (!a.signedIn && !renewing) toast(sh('signedOut'), 4000);
     refreshAccountButtons();
     ui.setPlayerStatus(platform.accountLine());
   });
-  $('btn-signin').textContent = shText('signIn');
-  $('btn-invite').textContent = shText('invite');
-  $('expired-h').textContent = shText('expiredTitle');
-  $('expired-body').textContent = shText('expiredBody');
-  $('btn-relaunch').textContent = shText('relaunch');
-  $('btn-expired-local').textContent = shText('playLocal');
+  onLanguage(relabel);
+  relabel();
   refreshAccountButtons();
   $('btn-signin').addEventListener('click', () => platform.signIn());
   $('btn-invite').addEventListener('click', copyInvite);
+  // Another device saved first: platform.js merged both saves; adopt the merged progress.
+  platform.onMerged(() => {
+    app.progress = platform.loadProgress();
+    ui.updateRails(null, null, app.progress);
+    if (app.phase === 'title') $('title-progress').textContent = progressSummary();
+  });
   platform.initHosted().then(async (remoteApplied) => {
     // Platform-stored preferences (adopted by initHosted) win over local ones.
     const adopted = platform.loadSettings();
@@ -90,9 +97,9 @@ function boot() {
   const host = $('canvas-host');
   app.renderer = new Renderer(host);
   if (app.renderer.failed) {
-    $('screen-title').innerHTML = '<div class="card"><h1>Territory Trail</h1>' +
-      '<p>This device or browser cannot create a WebGL context, so the 3D playfield is unavailable. ' +
-      'Your settings and progress are preserved. Try a browser with WebGL enabled.</p></div>';
+    $('screen-title').innerHTML = '<div class="card"><h1 data-i18n="webglTitle"></h1><p data-i18n="webglBody"></p></div>';
+    $('screen-title').querySelector('h1').textContent = t('webglTitle');
+    $('screen-title').querySelector('p').textContent = t('webglBody');
     ui.init(app.settings, onAction);
     ui.show('title');
     return;
@@ -119,12 +126,12 @@ function boot() {
 
 function progressSummary() {
   const stages = Object.values(app.progress.stagesCompleted).filter((r) => r && r.won).length;
-  return stages > 0 ? 'Journey progress: ' + stages + ' / ' + STAGES.length + ' stages.' : 'New here? Start with Learn.';
+  return stages > 0 ? t('progressSummary', { n: stages, total: STAGES.length }) : t('newHere');
 }
 
 function updateDailyLabel() {
   const d = dailySeed(new Date(platform.serverNow()));
-  $('btn-daily').textContent = 'Daily Challenge — ' + d.day;
+  $('btn-daily').textContent = t('dailyButton', { day: d.day });
 }
 
 function reducedMotion() {
@@ -213,11 +220,11 @@ function onAction(action, payload) {
     case 'home': goHome(); break;
     case 'undo':
       if (app.session && app.mode === 'practice' && app.session.undo()) {
-        ui.announce('Undone to before your last claim.');
+        ui.announce(t('undone'));
         app.renderer.buildBoard(app.session.state, effectiveTheme(app.modeData.theme));
       }
       break;
-    case 'camera': app.renderer.resize(); ui.announce('Camera reset.'); break;
+    case 'camera': app.renderer.resize(); ui.announce(t('cameraReset')); break;
     case 'hosted-quickjoin': roomsJoin(false); break;
     case 'hosted-create': roomsJoin(true); break;
     case 'hosted-start':
@@ -226,10 +233,10 @@ function onAction(action, payload) {
     case 'hosted-leave':
       hostedLeave();
       ui.setHostedStartVisible(false, false);
-      ui.setHostedStatus(platform.isHosted() ? 'Left the room.' : 'Not connected.');
+      ui.setHostedStatus({ key: platform.isHosted() ? 'leftRoom' : 'notConnected' });
       break;
     case 'relaunch':
-      if (!platform.relaunch()) toast(shText('signedOut'), 4000);
+      if (!platform.relaunch()) toast(sh('signedOut'), 4000);
       break;
     case 'overlay-closed': break;
     case 'settings-changed':
@@ -254,9 +261,10 @@ function beginRound(config, defs, modeData) {
   app.session.allowUndo = modeData.mode === 'practice';
   app.session.onEnd = onRoundEnd;
   ui.setUndoVisible(modeData.mode === 'practice');
-  ui.setObjective(modeData.goalText);
-  ui.setStatus(modeData.label, '');
-  ui.announce(modeData.goalText);
+  app.hudText = { goal: modeData.goal, label: modeData.label };
+  ui.setObjective(modeData.goal());
+  ui.setStatus(modeData.label(), '');
+  ui.announce(modeData.goal());
   app.attract = null;
   app.renderer.buildBoard(app.session.state, effectiveTheme(modeData.theme));
   app.renderer.resize();
@@ -293,7 +301,7 @@ function startJourneyStage(stage) {
   beginRound(
     { seed: stage.seed, width: stage.width, height: stage.height, maxTicks: stage.maxTicks, areaGoal: stage.areaGoal },
     defs,
-    { mode: 'journey', stage: stage, theme: stage.theme, goalText: stage.goalText, label: 'Journey ' + stage.index + ' — ' + stage.name }
+    { mode: 'journey', stage: stage, theme: stage.theme, goal: () => stageGoal(stage), label: () => t('labelJourney', { n: stage.index, name: stageName(stage) }) }
   );
 }
 
@@ -303,7 +311,7 @@ function startPractice(diff) {
   beginRound(
     { seed: seed, width: diff.width, height: diff.height, maxTicks: diff.maxTicks, areaGoal: diff.areaGoal },
     playerDefs(diff.bots),
-    { mode: 'practice', difficulty: diff, theme: 'meadow-dawn', goalText: 'Practice (' + diff.name + '): claim ' + diff.areaGoal + ' cells. Undo is available.', label: 'Practice — ' + diff.name }
+    { mode: 'practice', difficulty: diff, theme: 'meadow-dawn', goal: () => t('goalPractice', { name: difficultyName(diff), n: diff.areaGoal }), label: () => t('labelPractice', { name: difficultyName(diff) }) }
   );
 }
 
@@ -313,7 +321,7 @@ function startDaily() {
   beginRound(
     { seed: d.seed, width: d.width, height: d.height, maxTicks: d.maxTicks, areaGoal: d.areaGoal },
     playerDefs(d.bots),
-    { mode: 'daily', daily: d, theme: d.theme, goalText: d.goalText, label: 'Daily ' + d.day }
+    { mode: 'daily', daily: d, theme: d.theme, goal: () => t('goalDaily'), label: () => t('labelDaily', { day: d.day }) }
   );
 }
 
@@ -322,7 +330,7 @@ function startChallenge(c) {
   beginRound(
     { ...c.config },
     playerDefs(c.config.bots),
-    { mode: 'challenge', challenge: c, theme: 'slate-storm', goalText: c.goalText, label: 'Challenge — ' + c.name }
+    { mode: 'challenge', challenge: c, theme: 'slate-storm', goal: () => challengeGoal(c), label: () => t('labelChallenge', { name: challengeName(c) }) }
   );
 }
 
@@ -333,7 +341,7 @@ function startLesson(lesson) {
   beginRound(
     { ...lesson.config },
     playerDefs(lesson.config.bots),
-    { mode: 'learn', lesson: lesson, theme: lesson.theme, goalText: lesson.title + ': ' + lesson.text, label: 'Learn — ' + lesson.title }
+    { mode: 'learn', lesson: lesson, theme: lesson.theme, goal: () => t('goalLesson', { title: lessonTitle(lesson), text: lessonText(lesson) }), label: () => t('labelLearn', { name: lessonTitle(lesson) }) }
   );
 }
 
@@ -342,7 +350,7 @@ function pauseGame() {
   app.session.pause();
   setPhase('paused');
   ui.show('pause');
-  ui.announce('Paused.');
+  ui.announce(t('announcePaused'));
 }
 
 function resumeGame() {
@@ -405,7 +413,7 @@ function onRoundEnd(state) {
   app.progress.longRoadTotal = (app.progress.longRoadTotal || 0) + local.area;
   if (app.progress.longRoadTotal >= 10000 && platform.unlockAchievement(app.progress, 'long-road')) unlocked.push('long-road');
 
-  let progressText = '';
+  let progressText = () => '';
   if (app.mode === 'journey' && app.modeData.stage) {
     const sid = app.modeData.stage.id;
     const score = local.area + local.eliminations * 50;
@@ -422,23 +430,23 @@ function onRoundEnd(state) {
       if (app.streak >= 3 && platform.unlockAchievement(app.progress, 'streak-three')) unlocked.push('streak-three');
       if (app.modeData.stage.index === 40 && platform.unlockAchievement(app.progress, 'chapter-five')) unlocked.push('chapter-five');
     } else app.streak = 0;
-    progressText = (won ? 'Journey stage ' + app.modeData.stage.index + ' complete.' : 'Journey stage ' + app.modeData.stage.index + ' not yet complete.')
-      + ' Best: ' + app.progress.stagesCompleted[sid].score + '.';
+    const idx = app.modeData.stage.index, best = app.progress.stagesCompleted[sid].score;
+    progressText = () => t(won ? 'stageComplete' : 'stageIncomplete', { n: idx }) + t('bestN', { n: best });
   } else if (app.mode === 'learn' && app.lesson) {
     app.progress.lessonsCompleted[app.lesson.id] = { done: true };
     if (Object.keys(app.progress.lessonsCompleted).length >= LESSONS.length &&
         platform.unlockAchievement(app.progress, 'mechanic-mastery')) unlocked.push('mechanic-mastery');
-    progressText = 'Lesson complete.';
+    progressText = () => t('lessonComplete');
   } else if (app.mode === 'daily') {
     const d = dailySeed(new Date(platform.serverNow()));
     const score = local.area + local.eliminations * 50;
     if (!app.progress.bestDaily[d.day] || score > app.progress.bestDaily[d.day]) {
       app.progress.bestDaily[d.day] = { score: score, seed: d.seed, contentVersion: CONTENT_VERSION, duration: state.tick };
-      progressText = 'New daily best: ' + score + '.';
+      progressText = () => t('newDailyBest', { n: score });
     }
     app.streak = won ? app.streak + 1 : 0;
   } else if (app.mode === 'practice') {
-    progressText = 'Practice is unranked; rating unchanged.';
+    progressText = () => t('practiceUnranked');
   }
   platform.saveProgress(app.progress);
   audio.play(won ? 'win' : 'lose');
@@ -461,11 +469,10 @@ function postToLeaderboard(total) {
   if (!line || !platform.isHosted() || !['journey', 'daily', 'challenge'].includes(app.mode)) return;
   const session = app.session;
   line.hidden = false;
-  line.textContent = shText('lbPosting');
+  ui.setLeaderboardLine({ key: 'lbPosting' });
   platform.submitScore(total).then((r) => {
     if (app.session !== session || !line.isConnected) return;
-    line.textContent = !r.posted ? shText('lbNotPosted')
-      : r.rank ? shText('lbRank', { rank: r.rank }) : shText('lbPosted');
+    ui.setLeaderboardLine(!r.posted ? { key: 'lbNotPosted' } : r.rank ? { key: 'lbRank', vars: { rank: r.rank } } : { key: 'lbPosted' });
   });
 }
 
@@ -476,7 +483,7 @@ function sendDir(dir) {
     if (H.client.isHost) {
       const res = H.client.hostSendDir(dir, 'c' + (++H.cmdCounter));
       audio.play(res.ok ? 'input' : 'invalid');
-      if (!res.ok) ui.announce('Cannot move ' + dir + ': ' + res.reason);
+      if (!res.ok) ui.announce(t('cannotMove', { dir: dirName(dir), reason: rejectReason(res.reason) }));
       return;
     }
     if (H.client.guestSendDir(dir, 'c' + (++H.cmdCounter))) audio.play('input');
@@ -485,7 +492,7 @@ function sendDir(dir) {
   if (!app.session) return;
   const res = app.session.sendDirection(dir);
   audio.play(res.ok ? 'input' : 'invalid');
-  if (!res.ok) ui.announce('Cannot move ' + dir + ': ' + res.reason);
+  if (!res.ok) ui.announce(t('cannotMove', { dir: dirName(dir), reason: rejectReason(res.reason) }));
   if (res.ok && app.mode === 'learn' && app.lessonStats) app.lessonStats.moves++;
 }
 
@@ -507,8 +514,8 @@ function toast(msg, ms) {
 async function copyInvite() {
   const url = platform.inviteLink();
   if (!url) return;
-  try { await navigator.clipboard.writeText(url); toast(shText('copied')); }
-  catch (e) { toast(shText('copyFail', { url: url }), 6000); }
+  try { await navigator.clipboard.writeText(url); toast(sh('copied')); }
+  catch (e) { toast(sh('copyFail', { url: url }), 6000); }
 }
 
 function bindInput() {
@@ -611,7 +618,7 @@ async function roomsJoin(asHost) {
   if (app.hosted) hostedLeave();
   const client = new RoomsClient(platform);
   app.hosted = { mode: 'rooms', client: client, room: null, playerId: null, cmdCounter: 0, state: null, alive: false };
-  client.on('status', (m) => ui.setHostedStatus(m.text));
+  client.on('status', (m) => ui.setHostedStatus(m));
   client.on('welcome', (m) => hostedMessage({ type: 'welcome', playerId: m.playerId }));
   client.on('roster', (m) => hostedMessage({ type: 'roster', players: m.players }));
   client.on('start', (m) => { ui.setHostedStartVisible(false, client.isHost); hostedMessage({ type: 'start', seed: m.seed }); });
@@ -620,7 +627,8 @@ async function roomsJoin(asHost) {
   client.on('end', (m) => hostedMessage({ type: 'end', state: m.state, rank: m.rank }));
   client.on('error', (m) => hostedMessage({ type: 'error', message: m.message }));
   client.on('closed', () => hostedMessage({ type: 'closed' }));
-  client.on('auth-lost', () => hostedMessage({ type: 'auth-lost' }));
+  client.on('auth-lost', (m) => hostedMessage({ type: 'auth-lost', terms: !!m.terms }));
+  client.on('unavailable', () => hostedMessage({ type: 'unavailable' }));
   try {
     const ok = asHost ? await client.createAndOpen() : await client.quickJoin();
     if (!ok || !app.hosted || app.hosted.client !== client) { app.hosted = null; return; } // honest note already shown
@@ -628,7 +636,7 @@ async function roomsJoin(asHost) {
     ui.setHostedStartVisible(true, client.isHost);
   } catch (e) {
     if (app.hosted && app.hosted.client === client) app.hosted = null;
-    ui.setHostedStatus('Hosted rooms are unavailable (' + e.message + '). Try again in a moment.');
+    ui.setHostedStatus({ key: 'hostedUnavailable', vars: { error: e.message } });
   }
 }
 
@@ -637,15 +645,19 @@ function hostedMessage(msg) {
   if (!H) return;
   if (msg.type === 'welcome') {
     H.playerId = msg.playerId;
-    ui.setHostedStatus('Joined' + (H.room ? ' room "' + H.room + '"' : '') + ' as ' + (platform.getDisplayName() || msg.playerId) + '. Waiting for players…');
+    const name = { name: platform.getDisplayName() || msg.playerId };
+    ui.setHostedStatus(H.room ? { key: 'joinedRoom', vars: { room: H.room, ...name } } : { key: 'joined', vars: name });
   } else if (msg.type === 'roster') {
-    ui.setHostedStatus((H.room ? 'Room "' + H.room + '" — ' : 'Room — ') + msg.players.length + ' in lobby.', msg.players.map((p) => p.name + (p.id === H.playerId ? ' (you)' : '')));
+    ui.setHostedStatus(H.room ? { key: 'roomLobby', vars: { room: H.room, n: msg.players.length } } : { key: 'lobby', vars: { n: msg.players.length } },
+      msg.players.map((p) => ({ name: p.name, you: p.id === H.playerId })));
   } else if (msg.type === 'start') {
-    ui.setHostedStatus('Round starting…');
+    ui.setHostedStatus({ key: 'roundStartingStatus' });
     H.needBoard = true; // force a fresh board: player count/theme may differ from the last solo round
     setPhase('preparing');
-    ui.setObjective('Hosted round: claim territory, cut rivals, survive.');
-    ui.setStatus('Hosted — ' + (H.room || 'room'), '');
+    const room = H.room || 'room';
+    app.hudText = { goal: () => t('goalHosted'), label: () => t('labelHosted', { room }) };
+    ui.setObjective(app.hudText.goal());
+    ui.setStatus(app.hudText.label(), '');
     countdown(3, () => { setPhase('active'); ui.showHudOnly(); });
   } else if (msg.type === 'snapshot') {
     H.state = msg.state;
@@ -662,24 +674,37 @@ function hostedMessage(msg) {
     }
   } else if (msg.type === 'ack') {
     if (msg.playerId && msg.playerId !== H.playerId) return; // another guest's ack
-    if (!msg.ok) { ui.announce('Move rejected: ' + msg.reason); audio.play('invalid'); }
+    if (!msg.ok) { ui.announce(t('moveRejected', { reason: rejectReason(msg.reason) })); audio.play('invalid'); }
   } else if (msg.type === 'end') {
     setPhase('results');
-    ui.showResults(msg.state, H.playerId, { rank: msg.rank, unlocked: [], progressText: 'Hosted result reported by the room host. Reason: ' + msg.state.reason + '.' });
+    const reason = msg.state.reason;
+    ui.showResults(msg.state, H.playerId, { rank: msg.rank, unlocked: [], progressText: () => t('hostedResult', { reason: endReason(reason) }) });
     audio.play(msg.state.winner === H.playerId ? 'win' : 'lose');
     hostedLeave();
   } else if (msg.type === 'error') {
-    ui.setHostedStatus(typeof msg.message === 'string' ? msg.message : 'Room error.');
+    // net.js reports its own errors as { key, vars }; a platform error frame carries text.
+    ui.setHostedStatus(msg.message && typeof msg.message === 'object' ? msg.message : typeof msg.message === 'string' ? msg.message : { key: 'roomError' });
   } else if (msg.type === 'auth-lost') {
-    // Launch token dead: reconnecting stopped; offer a fresh launch.
+    // Launch token dead, or StarHermit needs the player to accept updated
+    // terms: reconnecting stopped; offer a fresh launch (localized either way).
     app.hosted = null;
     ui.setHostedStartVisible(false, false);
-    ui.setHostedStatus(shText('expiredTitle'));
+    expiredKind = msg.terms ? 'terms' : 'expired';
+    labelExpired();
+    ui.setHostedStatus({ sh: expiredKind === 'terms' ? 'termsTitle' : 'expiredTitle' });
     goHome();
     ui.show('expired');
+  } else if (msg.type === 'unavailable') {
+    // The room is gone: the reconnect loop has ended; say so on the hosted screen.
+    app.hosted = null;
+    goHome();
+    ui.setHostedMode({ rooms: platform.isHosted() });
+    ui.setHostedStatus({ key: 'roomGone' });
+    ui.show('hosted');
+    toast(t('roomGone'), 5000);
   } else if (msg.type === 'closed') {
-    ui.setHostedStatus('Disconnected.');
-    if (app.phase === 'active') { pauseGame(); ui.setStatus('Hosted — reconnecting', ''); }
+    ui.setHostedStatus({ key: 'disconnected' });
+    if (app.phase === 'active') { pauseGame(); app.hudText = { ...app.hudText, label: () => t('labelReconnecting') }; ui.setStatus(app.hudText.label(), ''); }
   }
 }
 
@@ -709,10 +734,9 @@ function frame(now) {
         ui.setDanger(exposed);
         const remainTicks = Math.max(0, snap.maxTicks - snap.tick);
         const remainSec = Math.ceil(remainTicks * TICK_MS / 1000);
-        ui.setClock(Math.floor(remainSec / 60) + ':' + String(remainSec % 60).padStart(2, '0') + ' left');
-        ui.mirrorBoard('Tick ' + snap.tick + ' of ' + snap.maxTicks + '. You have ' + p.area +
-          ' cells and ' + p.eliminations + ' eliminations. ' +
-          (p.alive ? (p.trail.length > 0 ? 'Your trail is exposed with ' + p.trail.length + ' cells.' : 'You are safe inside your territory.') : 'You are eliminated.'));
+        ui.setClock(t('timeLeft', { time: Math.floor(remainSec / 60) + ':' + String(remainSec % 60).padStart(2, '0') }));
+        ui.mirrorBoard(t('mirror', { tick: snap.tick, max: snap.maxTicks, area: p.area, elims: p.eliminations,
+          state: p.alive ? (p.trail.length > 0 ? t('mirrorExposed', { n: p.trail.length }) : t('mirrorSafe')) : t('mirrorOut') }));
       }
       if (app.mode === 'learn' && app.lesson) trackLesson(snap);
       if (snap.tick % 16 === 0) ui.updateRails(snap, 'p1', app.progress);
@@ -755,6 +779,34 @@ function trackLesson(state) {
     app.session.events.push({ kind: 'ended', reason: 'lesson-complete' });
     onRoundEnd(state);
   }
+}
+
+// ------------------------------------------------------------------ language
+let expiredKind = 'expired'; // 'expired' | 'terms'
+function labelExpired() {
+  $('expired-h').textContent = sh(expiredKind === 'terms' ? 'termsTitle' : 'expiredTitle');
+  $('expired-body').textContent = sh(expiredKind === 'terms' ? 'termsBody' : 'expiredBody');
+  $('btn-relaunch').textContent = sh('relaunch');
+  $('btn-expired-local').textContent = sh('playLocal');
+}
+
+/** Re-render code-built text in the current language; the round and any room keep running. */
+function relabel() {
+  $('btn-signin').textContent = sh('signIn');
+  $('btn-invite').textContent = sh('invite');
+  labelExpired();
+  if (!app.renderer || app.renderer.failed) {
+    const h1 = document.querySelector('#screen-title h1[data-i18n="webglTitle"]');
+    if (h1) { h1.textContent = t('webglTitle'); h1.nextElementSibling.textContent = t('webglBody'); }
+  }
+  updateDailyLabel();
+  $('title-progress').textContent = progressSummary();
+  ui.setPlayerStatus(platform.accountLine());
+  if (app.hudText && (app.session || app.hosted)) {
+    ui.setObjective(app.hudText.goal());
+    $('status-mode').textContent = app.hudText.label();
+  }
+  ui.relabel(app.progress);
 }
 
 boot();

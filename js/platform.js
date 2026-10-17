@@ -13,6 +13,8 @@
 // (any host, loopback included) makes no network calls and uses the local
 // clock; there is no telemetry or presence.
 
+import { t, playerName } from './i18n.js';
+
 const SETTINGS_KEY = 'territory-trail-settings-v1';
 const PROGRESS_KEY = 'territory-trail-progress-v1';
 
@@ -73,7 +75,19 @@ if (SH) {
     if (authListener) authListener(a);
   });
   SH.on('saved', (ok) => setSyncStatus(ok ? 'synced' : 'offline'));
+  // Another device saved since our last load: reload, merge with local
+  // progress (best of both), adopt, and save again.
+  SH.on('saveconflict', async () => {
+    const remote = normalizeProgress(await SH.loadJSON().catch(() => null));
+    const merged = mergeProgress(remote, loadProgress());
+    saveProgress(merged);
+    if (mergedListener) { try { mergedListener(merged); } catch (e) { /* listener guard */ } }
+  });
 }
+
+let mergedListener = null;
+/** fn(progress) after a save conflict merged another device's progress into the local cache. */
+export function onMerged(fn) { mergedListener = fn; }
 
 // ---------------------------------------------------------------- realtime rooms
 // REST lobby for net.js (host-routed rooms); the SDK attaches the token,
@@ -136,8 +150,8 @@ export function getDisplayName() {
 /** Status-bar identity line; '' offline. */
 export function accountLine() {
   if (!isHosted()) return '';
-  const sync = { saving: 'saving…', synced: 'synced', offline: 'offline' }[syncStatus] || 'offline';
-  return 'Playing as ' + getDisplayName() + ' · cloud ' + sync;
+  const sync = t({ saving: 'syncSaving', synced: 'syncSynced', offline: 'syncOffline' }[syncStatus] || 'syncOffline');
+  return t('accountLine', { name: playerName({ name: getDisplayName() }), sync });
 }
 
 export function onSyncStatus(fn) { syncListener = fn; }
@@ -148,8 +162,9 @@ function setSyncStatus(s) {
 }
 
 // ---------------------------------------------------------------- cloud save
-// One slot (game:<slug>) holding the checksummed progress doc. The remote doc
-// wins on load; localStorage remains the offline cache.
+// One slot (game:<slug>) holding the checksummed progress doc. On load (and
+// after a save conflict) the remote doc is merged with the local cache;
+// localStorage remains the offline cache.
 
 if (typeof window !== 'undefined' && typeof document !== 'undefined' && window.addEventListener) {
   const flush = () => { if (isHosted()) SH.flushSave(true); };
@@ -180,8 +195,12 @@ export async function initHosted() {
   await loadPlatformSettings();
   const remote = await cloudLoad();
   if (remote) {
-    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(remote)); } catch (e) { /* ignore */ }
-    setSyncStatus('synced');
+    const local = loadProgress();
+    const merged = mergeProgress(remote, local);
+    merged.checksum = checksum(merged);
+    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(merged)); } catch (e) { /* ignore */ }
+    if (merged.checksum !== remote.checksum) queueCloudSave(); // local had progress the cloud lacked
+    else setSyncStatus('synced');
     return true;
   }
   queueCloudSave(); // no remote save yet: seed the slot from the local cache
@@ -266,6 +285,36 @@ export function loadProgress() {
   // clean doc rather than guessing.
   if (doc && doc.version === 1) fresh.recoveredFromCorruption = true;
   return fresh;
+}
+
+/**
+ * Progress from two devices: per stage the best score, won if either won and
+ * the larger attempt count; lessons and achievements united; per day the
+ * better daily; the larger rating and long-road total. Either side may be null.
+ */
+export function mergeProgress(a, b) {
+  if (!a) return b; if (!b) return a;
+  const out = Object.assign({}, a, b);
+  out.stagesCompleted = Object.assign({}, a.stagesCompleted);
+  for (const [id, r] of Object.entries(b.stagesCompleted || {})) {
+    const p = out.stagesCompleted[id];
+    out.stagesCompleted[id] = !p ? r : {
+      score: Math.max(p.score || 0, r.score || 0), won: !!(p.won || r.won), attempts: Math.max(p.attempts || 0, r.attempts || 0),
+    };
+  }
+  out.lessonsCompleted = Object.assign({}, a.lessonsCompleted, b.lessonsCompleted);
+  out.bestDaily = Object.assign({}, a.bestDaily);
+  for (const [day, r] of Object.entries(b.bestDaily || {})) {
+    const p = out.bestDaily[day];
+    if (!p || (r && r.score > p.score)) out.bestDaily[day] = r;
+  }
+  out.achievements = (a.achievements || []).slice();
+  for (const k of b.achievements || []) if (out.achievements.indexOf(k) < 0) out.achievements.push(k);
+  out.rating = Math.max(Number(a.rating) || 0, Number(b.rating) || 0) || 1000;
+  out.longRoadTotal = Math.max(Number(a.longRoadTotal) || 0, Number(b.longRoadTotal) || 0);
+  delete out.recoveredFromCorruption;
+  out.checksum = checksum(out);
+  return out;
 }
 
 /** Validate version + checksum; returns null unless the doc is fully sound. */

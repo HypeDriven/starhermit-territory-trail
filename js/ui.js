@@ -2,12 +2,33 @@
 
 // UI: DOM shell — screens, rails, settings, help, results, accessibility mirror.
 import { STAGES, PRACTICE_DIFFICULTIES, CHALLENGES, LESSONS } from './content.js';
-import { ACHIEVEMENTS } from './platform.js?v=d149b156';
-import * as platform from './platform.js?v=d149b156';
+import { ACHIEVEMENTS } from './platform.js?v=l10n1017';
+import * as platform from './platform.js?v=l10n1017';
 import { PRESETS, CATEGORIES, resolve, presetTier, choosePreset } from './gfx.js';
 import { gfxStrings } from './gfx-i18n.js';
+import { shText } from './sh-i18n.js';
+import { t, locale, applyStatic, stageName, stageGoal, lessonTitle, lessonText, difficultyName, challengeName, challengeGoal, playerName, endReason } from './i18n.js';
+
+const ACH_KEYS = { 'first-claim': 'achFirstClaim', 'mechanic-mastery': 'achMechanic', 'streak-three': 'achStreak', 'chapter-five': 'achSummit', 'long-road': 'achLongRoad' };
+/** Hosted-status / leaderboard messages: plain text, { key, vars } (strings.js) or { sh, vars } (sh-i18n.js). */
+function msgText(m) {
+  if (m == null) return '';
+  if (typeof m === 'string') return m;
+  if (m.sh) return shText(m.sh, m.vars || {}, locale());
+  return t(m.key, m.vars);
+}
 
 const $ = (id) => document.getElementById(id);
+
+/** Card button content: a bold title, a line break and a muted detail line. */
+function cardText(button, title, detail) {
+  const strong = document.createElement('strong');
+  strong.textContent = title;
+  const span = document.createElement('span');
+  span.className = 'muted';
+  span.textContent = detail;
+  button.replaceChildren(strong, document.createElement('br'), span);
+}
 
 const SCREENS = ['title', 'modes', 'setup', 'countdown', 'pause', 'results', 'settings', 'help', 'hosted', 'expired'];
 
@@ -155,55 +176,59 @@ export const ui = {
 
   // ------------------------------------------------------------- setup screen
   buildSetup(mode, data) {
+    this._setup = { mode, data };
     const body = $('setup-body');
     body.innerHTML = '';
     const add = (el) => body.appendChild(el);
-    const para = (t) => { const p = document.createElement('p'); p.textContent = t; return p; };
+    const para = (text) => { const p = document.createElement('p'); p.textContent = text; return p; };
 
     if (mode === 'journey') {
-      add(para('Authored progression: 40 stages in five chapters. Mastery stage ends each chapter. Ranked: no.'));
+      add(para(t('setupJourney')));
       const list = document.createElement('div');
       list.className = 'grid-list';
       for (const s of STAGES) {
         const b = document.createElement('button');
         const rec = data.progress.stagesCompleted[s.id];
         const done = rec && rec.won;
-        b.innerHTML = '<strong>' + s.index + '. ' + s.name + '</strong><br><span class="muted">' +
-          s.goalText + (done ? ' ✓' : '') + (s.mastery ? ' — Mastery' : '') + '</span>';
+        b.dataset.stage = s.id;
+        cardText(b, s.index + '. ' + stageName(s), stageGoal(s) + (done ? ' ✓' : '') + (s.mastery ? t('mastery') : ''));
         b.addEventListener('click', () => this.onAction('setup-pick', { mode: 'journey', stage: s }));
         list.appendChild(b);
       }
       add(list);
     } else if (mode === 'practice') {
-      add(para('Unranked practice with undo. Pick a difficulty. No effect on rating.'));
+      add(para(t('setupPractice')));
       const list = document.createElement('div');
       list.className = 'grid-list';
       for (const d of PRACTICE_DIFFICULTIES) {
         const b = document.createElement('button');
-        b.innerHTML = '<strong>' + d.name + '</strong><br><span class="muted">' + d.bots + ' rivals · ' + d.width + '×' + d.height + '</span>';
+        b.dataset.difficulty = d.id;
+        cardText(b, difficultyName(d), t('rivalsSize', { n: d.bots, w: d.width, h: d.height }));
         b.addEventListener('click', () => this.onAction('setup-pick', { mode: 'practice', difficulty: d }));
         list.appendChild(b);
       }
       add(list);
     } else if (mode === 'challenge') {
-      add(para('Constrained goals. Ranked: no.'));
+      add(para(t('setupChallenge')));
       const list = document.createElement('div');
       list.className = 'grid-list';
       for (const c of CHALLENGES) {
         const b = document.createElement('button');
-        b.innerHTML = '<strong>' + c.name + '</strong><br><span class="muted">' + c.goalText + '</span>';
+        b.dataset.challenge = c.id;
+        cardText(b, challengeName(c), challengeGoal(c));
         b.addEventListener('click', () => this.onAction('setup-pick', { mode: 'challenge', challenge: c }));
         list.appendChild(b);
       }
       add(list);
     } else if (mode === 'learn') {
-      add(para('Interactive lessons — one rule at a time. You must perform each action to advance.'));
+      add(para(t('setupLearn')));
       const list = document.createElement('div');
       list.className = 'grid-list';
       for (const l of LESSONS) {
         const b = document.createElement('button');
         const done = data.progress.lessonsCompleted[l.id];
-        b.innerHTML = '<strong>' + l.title + '</strong><br><span class="muted">' + l.text + (done ? ' ✓' : '') + '</span>';
+        b.dataset.lesson = l.id;
+        cardText(b, lessonTitle(l), lessonText(l) + (done ? ' ✓' : ''));
         b.addEventListener('click', () => this.onAction('setup-pick', { mode: 'learn', lesson: l }));
         list.appendChild(b);
       }
@@ -212,18 +237,33 @@ export const ui = {
   },
 
   // ------------------------------------------------------------- settings
+  // Built once; reopening refreshes the values. Labels carry data-i18n so a
+  // language change relabels them in place (the shared Sound/Language/Report
+  // sections that game-options.js mounts in the graphics box stay put).
   buildSettingsForm() {
     const body = $('settings-body');
-    body.innerHTML = '';
     const s = this.settings;
-    const row = (label, input) => {
+    if (this._settingsInputs) {
+      for (const [key, input] of Object.entries(this._settingsInputs)) {
+        if (input.type === 'checkbox') input.checked = !!s[key]; else input.value = String(s[key]);
+      }
+      this.buildGraphicsSection($('gfx-own'));
+      this.startGfxTimer();
+      return;
+    }
+    body.innerHTML = '';
+    const inputs = this._settingsInputs = {};
+    const row = (labelKey, input, key) => {
       const div = document.createElement('div');
       div.className = 'row';
       const lab = document.createElement('label');
-      lab.textContent = label + ' ';
-      lab.appendChild(input);
+      const span = document.createElement('span');
+      span.dataset.i18n = labelKey;
+      span.textContent = t(labelKey);
+      lab.append(span, ' ', input);
       div.appendChild(lab);
       body.appendChild(div);
+      inputs[key] = input;
     };
     const slider = (key) => {
       const i = document.createElement('input');
@@ -237,27 +277,39 @@ export const ui = {
       i.addEventListener('change', () => { s[key] = i.checked; this.save(); });
       return i;
     };
-    row('Music volume', slider('music'));
-    row('Effects volume', slider('effects'));
-    row('Ambience volume', slider('ambience'));
+    row('volMusic', slider('music'), 'music');
+    row('volEffects', slider('effects'), 'effects');
+    row('volAmbience', slider('ambience'), 'ambience');
     const pal = document.createElement('select');
     for (const v of ['default', 'deuteranopia', 'protanopia', 'tritanopia']) {
-      const o = document.createElement('option'); o.value = v; o.textContent = v; pal.appendChild(o);
+      const o = document.createElement('option'); o.value = v;
+      o.dataset.i18n = 'pal' + v.charAt(0).toUpperCase() + v.slice(1);
+      o.textContent = t(o.dataset.i18n);
+      pal.appendChild(o);
     }
     pal.value = s.palette;
     pal.addEventListener('change', () => { s.palette = pal.value; this.save(); });
-    row('Color palette', pal);
-    row('Reduced motion', check('reducedMotion'));
-    row('High contrast', check('highContrast'));
-    row('Larger text', check('largeText'));
-    row('Left-handed controls', check('leftHanded'));
-    row('Haptics', check('haptics'));
-    row('Tutorial hints', check('showTutorialHints'));
+    row('colorPalette', pal, 'palette');
+    row('reducedMotion', check('reducedMotion'), 'reducedMotion');
+    row('highContrast', check('highContrast'), 'highContrast');
+    row('largerText', check('largeText'), 'largeText');
+    row('leftHanded', check('leftHanded'), 'leftHanded');
+    row('haptics', check('haptics'), 'haptics');
+    row('tutorialHints', check('showTutorialHints'), 'showTutorialHints');
     const gfx = document.createElement('div');
     gfx.id = 'gfx-section';
     gfx.className = 'col gfx-section';
+    // The game's own graphics controls redraw inside gfx-own only.
+    const own = document.createElement('div');
+    own.id = 'gfx-own';
+    own.className = 'col';
+    gfx.appendChild(own);
     body.appendChild(gfx);
-    this.buildGraphicsSection(gfx);
+    this.buildGraphicsSection(own);
+    this.startGfxTimer();
+  },
+
+  startGfxTimer() {
     if (this._gfxTimer) clearInterval(this._gfxTimer);
     this._gfxTimer = setInterval(() => this.refreshGraphicsSummary(), 1000);
   },
@@ -265,7 +317,7 @@ export const ui = {
   // Graphics: quality preset, render scale, per-effect overrides, adaptive
   // resolution, frame-rate readout, and a GPU / cost summary line.
   buildGraphicsSection(host) {
-    const T = gfxStrings();
+    const T = gfxStrings(locale());
     const s = this.settings;
     if (!s.graphics || typeof s.graphics !== 'object') s.graphics = { preset: 'auto' };
     const g = s.graphics;
@@ -376,7 +428,7 @@ export const ui = {
   refreshGraphicsSummary() {
     const sum = $('gfx-summary');
     if (!sum || !this.gfxInfo) return;
-    const T = gfxStrings();
+    const T = gfxStrings(locale());
     const info = this.gfxInfo(T.words);
     sum.textContent = info.gpu + ' · ' + info.summary + (info.fps ? ' · ' + info.fps + ' fps' : '');
     sum.dataset.preset = info.resolved.preset;
@@ -411,19 +463,19 @@ export const ui = {
     const body = $('help-body');
     body.innerHTML = '';
     const cards = [
-      ['Steer', keys('up') + ' ' + keys('left') + ' ' + keys('down') + ' ' + keys('right') + ', the on-screen pad, or a swipe changes direction. Your marker keeps moving.'],
-      ['Claim', 'Leave your colored territory, draw a loop, and re-enter your own land. The enclosed cells become yours and add to your score.'],
-      ['Danger', 'While outside, your trail is exposed. If a rival crosses it, you are eliminated. Your ring pulses white while exposed.'],
-      ['Cut', 'Cross a rival\'s exposed trail to eliminate them: +50 score.'],
-      ['Win', 'Reach the area goal, outlast every rival, or hold the most territory when time runs out. Ties break on fewer invalid moves.'],
-      ['Undo', 'In Practice mode, Undo (' + keys('undo') + ') returns to the moment before your last claim.'],
-      ['Camera', 'Press ' + keys('camera') + ' or the Camera button to refit the board. ' + keys('pause') + ' pauses.'],
+      [t('helpSteer'), t('helpSteerText', { keys: keys('up') + ' ' + keys('left') + ' ' + keys('down') + ' ' + keys('right') })],
+      [t('helpClaim'), t('helpClaimText')],
+      [t('helpDanger'), t('helpDangerText')],
+      [t('helpCut'), t('helpCutText')],
+      [t('helpWin'), t('helpWinText')],
+      [t('helpUndo'), t('helpUndoText', { key: keys('undo') })],
+      [t('helpCamera'), t('helpCameraText', { camera: keys('camera'), pause: keys('pause') })],
     ];
-    for (const [t, d] of cards) {
+    for (const [title, d] of cards) {
       const div = document.createElement('div');
       div.className = 'card';
       div.style.padding = '0.8em';
-      const h = document.createElement('h3'); h.textContent = t;
+      const h = document.createElement('h3'); h.textContent = title;
       const p = document.createElement('p'); p.textContent = d; p.style.margin = '0.2em 0';
       div.appendChild(h); div.appendChild(p);
       body.appendChild(div);
@@ -432,45 +484,59 @@ export const ui = {
 
   // ------------------------------------------------------------- results
   showResults(state, localId, extras) {
+    this._results = { state, localId, extras };
+    this._lbLine = null;
+    this.renderResults();
+    this.announce($('results-h').textContent + '. ' + $('results-body').querySelector('.muted').textContent);
+    this.show('results');
+  },
+
+  /** Results body in the current language (re-run on a language change). */
+  renderResults() {
+    const { state, localId, extras } = this._results;
+    const lbBefore = this._lbLine;
     const body = $('results-body');
     body.innerHTML = '';
     const h = $('results-h');
     const li = state.players.findIndex((p) => p.id === localId);
     const local = li >= 0 ? state.players[li] : null;
     const won = state.winner === localId;
-    h.textContent = won ? 'Victory!' : (local && !local.alive ? 'Eliminated' : 'Round over');
+    h.textContent = won ? t('victory') : (local && !local.alive ? t('eliminated') : t('roundOver'));
 
     const reasonP = document.createElement('p');
     reasonP.className = 'muted';
-    reasonP.textContent = 'Ended by: ' + state.reason + ' at tick ' + state.tick + ' of ' + state.maxTicks + '.';
+    reasonP.textContent = t('endedBy', { reason: endReason(state.reason), tick: state.tick, max: state.maxTicks });
     body.appendChild(reasonP);
 
     if (local) {
       const title = document.createElement('h3');
-      title.textContent = 'Your score breakdown';
+      title.textContent = t('scoreBreakdown');
       body.appendChild(title);
       const lines = [
-        ['Territory area', local.area + ' cells × 1', local.area],
-        ['Eliminations', local.eliminations + ' × 50', local.eliminations * 50],
-        ['Total', '', local.area + local.eliminations * 50],
+        [t('territoryArea'), t('cellsTimes', { n: local.area }), local.area],
+        [t('eliminations'), t('timesFifty', { n: local.eliminations }), local.eliminations * 50],
+        [t('total'), '', local.area + local.eliminations * 50],
       ];
       for (const [name, calc, val] of lines) {
         const div = document.createElement('div');
         div.className = 'score-line';
-        div.innerHTML = '<span>' + name + '</span><span class="muted">' + calc + '</span><strong>' + val + '</strong>';
+        const a = document.createElement('span'); a.textContent = name;
+        const c = document.createElement('span'); c.className = 'muted'; c.textContent = calc;
+        const v = document.createElement('strong'); v.textContent = String(val);
+        div.append(a, c, v);
         body.appendChild(div);
       }
     }
 
     const board = document.createElement('h3');
-    board.textContent = 'Standings';
+    board.textContent = t('standings');
     body.appendChild(board);
     for (const i of extras.rank) {
       const p = state.players[i];
       const div = document.createElement('div');
       div.className = 'score-line';
       const name = document.createElement('span');
-      name.textContent = (p.id === localId ? '▶ ' : '') + p.name + (p.alive ? '' : ' ✝');
+      name.textContent = (p.id === localId ? '▶ ' : '') + playerName(p) + (p.alive ? '' : ' ✝');
       const score = document.createElement('strong');
       score.textContent = String(p.area + p.eliminations * 50);
       div.appendChild(name); div.appendChild(score);
@@ -479,32 +545,40 @@ export const ui = {
 
     if (extras.unlocked && extras.unlocked.length) {
       const h3 = document.createElement('h3');
-      h3.textContent = 'Achievements unlocked';
+      h3.textContent = t('achievementsUnlocked');
       body.appendChild(h3);
       for (const key of extras.unlocked) {
-        const a = ACHIEVEMENTS.find((x) => x.key === key);
+        const k = ACH_KEYS[key];
         const p = document.createElement('p');
-        p.textContent = '🏅 ' + (a ? a.name + ' — ' + a.desc : key);
+        p.textContent = '🏅 ' + (k ? t(k) + ' — ' + t(k + 'Desc') : key);
         body.appendChild(p);
       }
     }
-    if (extras.progressText) {
+    const progressText = typeof extras.progressText === 'function' ? extras.progressText() : extras.progressText;
+    if (progressText) {
       const p = document.createElement('p');
       p.className = 'muted';
-      p.textContent = extras.progressText;
+      p.textContent = progressText;
       body.appendChild(p);
     }
     const lb = document.createElement('p');
     lb.id = 'results-lb';
     lb.className = 'muted';
     lb.setAttribute('aria-live', 'polite');
-    lb.hidden = true;
+    lb.hidden = !lbBefore;
+    lb.textContent = msgText(lbBefore);
     body.appendChild(lb);
-    this.announce(h.textContent + '. ' + reasonP.textContent);
-    this.show('results');
+  },
+
+  /** Results leaderboard line as { key } in sh-i18n.js; kept for language changes. */
+  setLeaderboardLine(m) {
+    this._lbLine = m;
+    const lb = $('results-lb');
+    if (lb) { lb.hidden = false; lb.textContent = shText(m.key, m.vars || {}, locale()); }
   },
 
   updateRails(state, localId, progress) {
+    this._rails = { state, localId, progress };
     // Right rail: per-player status.
     const rs = $('rail-status');
     rs.innerHTML = '';
@@ -513,48 +587,62 @@ export const ui = {
         const div = document.createElement('div');
         div.className = 'score-line';
         const name = document.createElement('span');
-        name.textContent = p.name + (p.id === localId ? ' (you)' : '');
+        name.textContent = p.id === localId ? t('youSuffix', { name: playerName(p) }) : playerName(p);
         const stat = document.createElement('span');
-        stat.textContent = p.area + ' cells' + (p.alive ? '' : ' · out');
+        stat.textContent = t('railCells', { n: p.area }) + (p.alive ? '' : t('railOut'));
         div.appendChild(name); div.appendChild(stat);
         rs.appendChild(div);
       }
-      const t = document.createElement('p');
-      t.className = 'muted';
-      t.textContent = 'Tick ' + state.tick + ' / ' + state.maxTicks;
-      rs.appendChild(t);
+      const tick = document.createElement('p');
+      tick.className = 'muted';
+      tick.textContent = t('railTick', { tick: state.tick, max: state.maxTicks });
+      rs.appendChild(tick);
     }
     // Left rail: journey progress summary.
     const rj = $('rail-journey');
     rj.innerHTML = '';
     const done = Object.values(progress.stagesCompleted).filter((r) => r && r.won).length;
     const p = document.createElement('p');
-    p.textContent = 'Journey: ' + done + ' / ' + STAGES.length + ' stages complete.';
+    p.textContent = t('railJourney', { n: done, total: STAGES.length });
     rj.appendChild(p);
     const lessons = Object.keys(progress.lessonsCompleted).length;
     const p2 = document.createElement('p');
-    p2.textContent = 'Lessons: ' + lessons + ' / ' + LESSONS.length + '.';
+    p2.textContent = t('railLessons', { n: lessons, total: LESSONS.length });
     rj.appendChild(p2);
     const p3 = document.createElement('p');
-    p3.textContent = 'Achievements: ' + progress.achievements.length + ' / ' + ACHIEVEMENTS.length + '.';
+    p3.textContent = t('railAchievements', { n: progress.achievements.length, total: ACHIEVEMENTS.length });
     rj.appendChild(p3);
     const p4 = document.createElement('p');
     p4.className = 'muted';
-    p4.textContent = 'Rating: ' + progress.rating;
+    p4.textContent = t('railRating', { n: progress.rating });
     rj.appendChild(p4);
   },
 
-  setHostedStatus(text, roster) {
-    $('hosted-status').textContent = text;
+  /** msg: text, { key, vars } or { sh }; roster: [{ name, you }] (kept for language changes). */
+  setHostedStatus(msg, roster) {
+    this._hosted = { msg, roster };
+    $('hosted-status').textContent = msgText(msg);
     const r = $('hosted-roster');
     r.innerHTML = '';
     if (roster) {
-      for (const name of roster) {
+      for (const entry of roster) {
         const div = document.createElement('div');
-        div.textContent = name;
+        const name = playerName(entry);
+        div.textContent = entry.you ? t('youSuffix', { name }) : name;
         r.appendChild(div);
       }
     }
+  },
+
+  /** Re-render code-built UI text in the current language, in place. */
+  relabel(progress) {
+    applyStatic(document);
+    if (this._setup && $('setup-body').children.length) this.buildSetup(this._setup.mode, this._setup.data);
+    if (this._settingsInputs && $('gfx-own')) this.buildGraphicsSection($('gfx-own'));
+    if ($('help-body') && $('help-body').children.length) this.buildHelp();
+    if (this._results && $('results-body').children.length) this.renderResults();
+    if (this._hosted) this.setHostedStatus(this._hosted.msg, this._hosted.roster);
+    if (this._rails) this.updateRails(this._rails.state, this._rails.localId, progress || this._rails.progress);
   },
 
   // Which hosted-play chrome applies: platform rooms (launch token) or the
@@ -563,9 +651,7 @@ export const ui = {
     $('hosted-rooms-ui').style.display = opts.rooms ? '' : 'none';
     $('hosted-offline-note').style.display = opts.rooms ? 'none' : '';
     this.setHostedStartVisible(false, false);
-    this.setHostedStatus(opts.rooms
-      ? 'Quick join an open room, or create one and other players can quick-join it.'
-      : 'Hosted play is unavailable on this build.');
+    this.setHostedStatus({ key: opts.rooms ? 'hostedHint' : 'hostedNone' });
   },
 
   // In a room: host sees Start round + Leave; a guest sees Leave only.

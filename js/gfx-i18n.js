@@ -1,7 +1,7 @@
 'use strict';
 
-// Localized strings for the Graphics settings section. The rest of the game is
-// English-only; this panel picks its locale from navigator.language.
+// Localized strings for the Graphics settings section; callers pass the game
+// locale from js/i18n.js (navigator.language is only the fallback).
 
 const EN = {
   graphics: 'Graphics', quality: 'Quality', auto: 'Auto (detected: {tier})', fromPreset: 'From preset ({tier})',

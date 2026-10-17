@@ -13,6 +13,10 @@
 // ids (token sub) and empty seats are AI, mirroring server.js's fill-to-4.
 
 import { createGame, initHash, step, applyCommand, rankPlayers, PHASE } from './rules.js';
+import { t } from './i18n.js';
+
+/** Status/error payloads carry the string key so the UI can re-render them in another language. */
+const say = (key, vars) => ({ key, vars, text: t(key, vars) });
 
 const SENDER_PREFIX = 16;      // bytes: platform participant id prefix
 const MAX_BINARY = 8192;       // 8 KB/frame cap
@@ -74,7 +78,7 @@ export class RoomsClient {
 
   /** Host: create a 4-seat room and open it for quick-join. */
   async createAndOpen() {
-    this._emit('status', { text: 'Creating room…' });
+    this._emit('status', say('creatingRoom'));
     const room = await this.platform.rooms.create({
       teamCount: 1,
       seatsPerTeam: ROOM_SEATS,
@@ -92,10 +96,10 @@ export class RoomsClient {
 
   /** Guest: quick-join any open room for this game (404 = none open). */
   async quickJoin() {
-    this._emit('status', { text: 'Looking for an open room…' });
+    this._emit('status', say('lookingForRoom'));
     const room = await this.platform.rooms.quickJoin({ seats: 1 });
     if (!room) { // 404: no open room
-      this._emit('error', { message: 'No open rooms right now. Create one and other players can quick-join it.' });
+      this._emit('error', { message: say('noOpenRooms') });
       return false;
     }
     this.roomId = roomIdOf(room);
@@ -137,26 +141,32 @@ export class RoomsClient {
   _scheduleReconnect() {
     if (this._reconnects >= 5) { this._emit('closed', {}); return; }
     const delay = Math.min(8000, 500 * Math.pow(2, this._reconnects++));
-    this._emit('status', { text: 'Connection lost — reconnecting (attempt ' + this._reconnects + ')…' });
+    this._emit('status', say('reconnecting', { n: this._reconnects }));
     this._reconnectTimer = setTimeout(async () => {
       // A failed reconnect may be an expired launch token (refused before the
       // upgrade, seen only as 1006): renew first, then rebuild the URL from
       // the current token. 'retry' backs off without reopening the old URL;
-      // 'relaunch' means the token is dead — stop for good.
+      // 'relaunch' means the token is dead — stop for good; 'terms-required'
+      // means StarHermit needs the player to accept updated terms — stop too.
       const renewal = await this._renewForReconnect();
       if (this._intentionalClose || !this.roomId) return;
       if (renewal === 'relaunch') { this._authLost(); return; }
+      if (renewal === 'terms-required') { this._authLost({ terms: true }); return; }
       if (renewal !== 'renewed') { this._scheduleReconnect(); return; }
-      this.platform.rooms.mine()
-        .then(async (mine) => {
-          const rid = roomIdOf(mine);
-          if (!rid) throw new Error('not-in-room');
-          this.roomId = rid;
-          await this._connectWs();
-          this._emit('status', { text: 'Reconnected to the room.' });
-          if (this.isHost && this.game) this._resumeGuests(); // re-broadcast state
-        })
-        .catch(() => this._scheduleReconnect());
+      let mine;
+      try { mine = await this.platform.rooms.mine(); } catch (e) {
+        // The room is gone (403/404/410): end the loop visibly; other errors retry.
+        if (e && [403, 404, 410].includes(e.status)) { this._unavailable(); return; }
+        this._scheduleReconnect();
+        return;
+      }
+      if (this._intentionalClose || !this.roomId) return;
+      const rid = roomIdOf(mine);
+      if (!rid) { this._unavailable(); return; } // no longer seated in any room
+      this.roomId = rid;
+      try { await this._connectWs(); } catch (e) { this._scheduleReconnect(); return; }
+      this._emit('status', say('reconnected'));
+      if (this.isHost && this.game) this._resumeGuests(); // re-broadcast state
     }, delay);
     if (this._reconnectTimer && this._reconnectTimer.unref) this._reconnectTimer.unref();
   }
@@ -166,8 +176,8 @@ export class RoomsClient {
     try { return await this.platform.rooms.renewForReconnect(); } catch (e) { return 'retry'; } finally { this.renewing = false; }
   }
 
-  /** Renewal refused: drop the room locally (REST would 401) and surface relaunch. */
-  _authLost() {
+  /** Room no longer exists (or we lost our seat): stop reconnecting and say so. */
+  _unavailable() {
     this._stopTimer();
     this.game = null;
     this.participants = [];
@@ -177,7 +187,21 @@ export class RoomsClient {
     this._reconnectTimer = null;
     try { if (this.ws) this.ws.close(); } catch (e) { /* already closed */ }
     this.ws = null;
-    this._emit('auth-lost', {});
+    this._emit('unavailable', {});
+  }
+
+  /** Renewal refused (or terms consent required): drop the room locally (REST would 401) and surface relaunch. */
+  _authLost(opts) {
+    this._stopTimer();
+    this.game = null;
+    this.participants = [];
+    this._senderPlayer.clear();
+    this.roomId = null;
+    this._intentionalClose = true;
+    this._reconnectTimer = null;
+    try { if (this.ws) this.ws.close(); } catch (e) { /* already closed */ }
+    this.ws = null;
+    this._emit('auth-lost', { terms: !!(opts && opts.terms) });
   }
 
   _sendControl(obj) {
@@ -385,7 +409,7 @@ export class RoomsClient {
     }
     if (typeof msg.type === 'string') {
       if (msg.type === 'ack' || msg.type === 'end') { this._emit(msg.type, msg); return; }
-      if (msg.type === 'error') { this._emit('error', { message: typeof msg.message === 'string' ? msg.message : 'Room error.' }); return; }
+      if (msg.type === 'error') { this._emit('error', { message: typeof msg.message === 'string' ? msg.message : say('roomError') }); return; }
       if (msg.type === 'start' && !this.isHost) { this._emit('start', msg); return; }
       return; // ignore our own host echoes
     }
@@ -410,7 +434,7 @@ export class RoomsClient {
     }
     this._resolveNames();
     if (!this.isHost && this.ws && !this.participants.some((p) => p.userId !== this.myPlayerId)) {
-      this._emit('status', { text: 'The host left the room.' });
+      this._emit('status', say('hostLeft'));
     }
     this._emitRoster();
   }
