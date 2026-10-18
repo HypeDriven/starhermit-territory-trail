@@ -16,11 +16,10 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { detectPreset, resolve, describe, SHADOW_MAP } from './gfx.js';
+import { detectLevel, presetForLevel, resolve, describe, SHADOW_MAP, MOTE_MAX } from './gfx.js';
 
 const LAYER_ENV = 0, LAYER_GAME = 1, LAYER_FX = 3;
 const MAX_SPARKS = 900;
-const MOTE_COUNT = 140;
 const CAM_POS = new THREE.Vector3(0, 42, 26);
 
 // Colour grade + vignette (display-space colours in, display-space out).
@@ -45,9 +44,30 @@ const GradeShader = {
     }`,
 };
 
-// Deterministic value-noise grain texture (visual seed, never touches rules).
-function grainTexture(seed, lo, hi) {
-  const size = 128;
+// Lit materials per budget (gfx.js BUDGETS.material): Lambert on Low, Standard on Balanced, Physical
+// (clearcoat) on High/Ultra. Parameters a class doesn't have are dropped.
+const LIT = { lambert: THREE.MeshLambertMaterial, standard: THREE.MeshStandardMaterial, physical: THREE.MeshPhysicalMaterial };
+function litMaterial(kind, params) {
+  const m = new (LIT[kind] || THREE.MeshStandardMaterial)();
+  for (const [k, v] of Object.entries(params)) {
+    if (!(k in m)) continue;
+    if (m[k] && m[k].isColor) m[k].set(v); else m[k] = v;
+  }
+  return m;
+}
+
+// Run a post pass at a fraction of the frame: EffectComposer.addPass/setSize hand every pass the full
+// frame size, so the pass's own setSize applies the budget's scale (half-res bloom/GTAO below Ultra).
+function atScale(pass, k) {
+  if (!(k > 0 && k < 1)) return pass;
+  const setSize = pass.setSize.bind(pass);
+  pass.setSize = (w, h) => setSize(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
+  return pass;
+}
+
+// Deterministic value-noise grain texture (visual seed, never touches rules). `size` is the budget's
+// texture size in px; the noise field is the same at every size.
+function grainTexture(seed, lo, hi, size = 128) {
   const c = document.createElement('canvas');
   c.width = c.height = size;
   const ctx = c.getContext('2d');
@@ -58,7 +78,7 @@ function grainTexture(seed, lo, hi) {
   for (let i = 0; i < 17 * 17; i++) coarse.push(rnd());
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const gx = x / 8, gy = y / 8, ix = gx | 0, iy = gy | 0, fx = gx - ix, fy = gy - iy;
+      const gx = x * 16 / size, gy = y * 16 / size, ix = gx | 0, iy = gy | 0, fx = gx - ix, fy = gy - iy;
       const a = coarse[iy * 17 + ix], b = coarse[iy * 17 + ix + 1], cc = coarse[(iy + 1) * 17 + ix], d = coarse[(iy + 1) * 17 + ix + 1];
       const v = (a * (1 - fx) + b * fx) * (1 - fy) + (cc * (1 - fx) + d * fx) * fy;
       const n = lo + (hi - lo) * (0.65 * v + 0.35 * rnd());
@@ -133,7 +153,14 @@ export class Renderer {
 
     this.gpu = Renderer.gpuName(this.renderer);
     const mobile = (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent || '');
-    this.detected = detectPreset(this.gpu, mobile);
+    // StarHermit hardware level (js/gpu-level.js): renderer string + device facts (cores, memory, screen).
+    let sys = { mobile };
+    try {
+      const G = globalThis.StarHermitGpu;
+      if (G) { const d = G.detectSystem(); sys = { ...d, mobile: mobile || d.mobile, gpu: undefined }; }
+    } catch (e) { /* defaults */ }
+    this.gpuLevel = detectLevel(this.gpu, sys);
+    this.detected = presetForLevel(this.gpuLevel);
 
     // PBR lighting: one dominant key, soft hemisphere fill.
     const key = new THREE.DirectionalLight(0xfff4e6, 2.2);
@@ -148,7 +175,7 @@ export class Renderer {
     this.scene.add(key, fill);
 
     this.reducedMotion = false;
-    this.q = resolve({}, this.detected);
+    this.q = resolve({}, this.detected, this.gpuLevel);
     this.size = [0, 0];
     this.pixelRatio = 1;
     this.adaptiveScale = 1;
@@ -213,7 +240,7 @@ export class Renderer {
     if (gkey === this._gfxKey) return; // unrelated settings changed
     this._gfxKey = gkey;
     const prev = this.q;
-    const g = resolve(saved || {}, this.detected);
+    const g = resolve(saved || {}, this.detected, this.gpuLevel);
     this.q = g;
     this.reducedMotion = !!reducedMotion;
     const size = SHADOW_MAP[g.shadows];
@@ -230,7 +257,15 @@ export class Renderer {
     this.postKey = null; // rebuild the post chain on the next frame
     this._fpsVisible(g.showFps);
     this.motes.visible = g.background === 'animated';
-    if (prev && prev.detail !== g.detail && this.lastBuild) {
+    this.moteCount = g.budget.motes;
+    this.motes.geometry.setDrawRange(0, this.moteCount);
+    const b = g.budget, pb = prev && prev.budget;
+    const lookChanged = pb && (pb.material !== b.material || pb.bevel !== b.bevel || pb.round !== b.round || pb.texture !== b.texture);
+    if (pb && pb.texture !== b.texture) {
+      for (const t of [this.grain, this.tileGrain]) if (t) t.dispose();
+      this.grain = this.tileGrain = null;
+    }
+    if (prev && (prev.detail !== g.detail || lookChanged) && this.lastBuild) {
       const att = this.attract;
       this.buildBoard(this.lastBuild.state, this.lastBuild.theme);
       this.attract = att;
@@ -248,6 +283,7 @@ export class Renderer {
     const px = [Math.round(this.size[0] * this.pixelRatio), Math.round(this.size[1] * this.pixelRatio)];
     return {
       gpu: this.gpu || 'unknown GPU',
+      level: this.gpuLevel,
       detected: this.detected,
       resolved: this.q,
       summary: describe(this.q, px, words),
@@ -329,11 +365,13 @@ export class Renderer {
 
     // Ambient motes drifting around the island.
     const mg = new THREE.BufferGeometry();
-    this.motePos = new Float32Array(MOTE_COUNT * 3);
-    this.moteSeed = new Float32Array(MOTE_COUNT * 4);
+    // Pool for the largest budget; the preset's budget sets the draw range (setGraphics).
+    this.moteCount = this.q.budget.motes;
+    this.motePos = new Float32Array(MOTE_MAX * 3);
+    this.moteSeed = new Float32Array(MOTE_MAX * 4);
     let s = 1234567;
     const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-    for (let i = 0; i < MOTE_COUNT; i++) {
+    for (let i = 0; i < MOTE_MAX; i++) {
       this.moteSeed[i * 4] = (rnd() - 0.5) * 70;
       this.moteSeed[i * 4 + 1] = rnd() * 30 - 14;
       this.moteSeed[i * 4 + 2] = (rnd() - 0.5) * 60;
@@ -346,13 +384,14 @@ export class Renderer {
     this.motes.layers.set(LAYER_FX);
     this.motes.raycast = () => {};
     this.motes.visible = false;
+    mg.setDrawRange(0, this.moteCount);
     this._updateMotes(0);
     this.scene.add(this.motes);
   }
 
   _updateMotes(t) {
     const p = this.motePos, sd = this.moteSeed;
-    for (let i = 0; i < MOTE_COUNT; i++) {
+    for (let i = 0; i < this.moteCount; i++) {
       const ph = sd[i * 4 + 3];
       p[i * 3] = sd[i * 4] + Math.sin(t * 0.21 + ph) * 1.6;
       p[i * 3 + 1] = ((sd[i * 4 + 1] + t * 0.35 + 14) % 30) - 14;
@@ -410,6 +449,7 @@ export class Renderer {
     this._applyBackground();
     this.scene.fog = new THREE.Fog(theme.background, 60, 140);
     const detailed = this.q.detail === 'detailed';
+    const B = this.q.budget, lit = (o) => litMaterial(B.material, o);
     this.moteMat.color.set(theme.trailGlow);
 
     const w = state.width, h = state.height;
@@ -417,10 +457,10 @@ export class Renderer {
     const extra = [];
 
     // Floating island base under the grid.
-    const baseGeo = detailed ? new RoundedBoxGeometry(w + 2.4, 1.2, h + 2.4, 3, 0.35) : new THREE.BoxGeometry(w + 2.4, 1.2, h + 2.4);
-    const baseMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(theme.grid), roughness: 0.9, metalness: 0.05 });
+    const baseGeo = detailed ? new RoundedBoxGeometry(w + 2.4, 1.2, h + 2.4, B.bevel + 1, 0.35) : new THREE.BoxGeometry(w + 2.4, 1.2, h + 2.4);
+    const baseMat = lit({ color: new THREE.Color(theme.grid), roughness: 0.9, metalness: 0.05 });
     if (detailed) {
-      this.grain = this.grain || grainTexture(94, 0.72, 1.0);
+      this.grain = this.grain || grainTexture(94, 0.72, 1.0, B.texture);
       baseMat.map = this.grain.clone();
       baseMat.map.needsUpdate = true;
       baseMat.map.repeat.set((w + 2.4) / 6, (h + 2.4) / 6);
@@ -448,7 +488,7 @@ export class Renderer {
       }
       rockGeo.computeVertexNormals();
       const rockCol = new THREE.Color(theme.grid).lerp(new THREE.Color(theme.background), 0.35);
-      const rock = new THREE.Mesh(rockGeo, new THREE.MeshStandardMaterial({ color: rockCol, roughness: 1, metalness: 0, flatShading: true }));
+      const rock = new THREE.Mesh(rockGeo, lit({ color: rockCol, roughness: 1, metalness: 0, flatShading: true }));
       rock.scale.set((w + 2.2) / 2, depth, (h + 2.2) / 2);
       rock.position.set(0, -1.3 - depth / 2, 0);
       rock.layers.set(LAYER_ENV);
@@ -456,8 +496,8 @@ export class Renderer {
       extra.push(rock);
 
       // Soft rim trim around the plane edge.
-      const rimMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(theme.gridLine).multiplyScalar(1.4), roughness: 0.5, metalness: 0.3, emissive: new THREE.Color(theme.gridLine), emissiveIntensity: 0.25 });
-      const rim = new THREE.Mesh(new RoundedBoxGeometry(w + 0.5, 0.12, h + 0.5, 2, 0.05), rimMat);
+      const rimMat = lit({ color: new THREE.Color(theme.gridLine).multiplyScalar(1.4), roughness: 0.5, metalness: 0.3, emissive: new THREE.Color(theme.gridLine), emissiveIntensity: 0.25 });
+      const rim = new THREE.Mesh(new RoundedBoxGeometry(w + 0.5, 0.12, h + 0.5, B.bevel, 0.05), rimMat);
       rim.position.set(0, -0.1, 0);
       rim.receiveShadow = true;
       rim.layers.set(LAYER_ENV);
@@ -466,12 +506,12 @@ export class Renderer {
     }
 
     // Cell tiles: one InstancedMesh, per-instance color = owner.
-    const cellGeo = detailed ? new RoundedBoxGeometry(0.965, 0.22, 0.965, 2, 0.05) : new THREE.BoxGeometry(0.96, 0.22, 0.96);
+    const cellGeo = detailed ? new RoundedBoxGeometry(0.965, 0.22, 0.965, B.bevel, 0.05) : new THREE.BoxGeometry(0.96, 0.22, 0.96);
     const cellMat = detailed
-      ? new THREE.MeshPhysicalMaterial({ roughness: 0.5, metalness: 0.02, clearcoat: 0.55, clearcoatRoughness: 0.35 })
-      : new THREE.MeshStandardMaterial({ roughness: 0.75, metalness: 0.08 });
+      ? lit({ roughness: 0.5, metalness: 0.02, clearcoat: 0.55, clearcoatRoughness: 0.35 })
+      : lit({ roughness: 0.75, metalness: 0.08 });
     if (detailed) {
-      this.tileGrain = this.tileGrain || grainTexture(7, 0.9, 1.0);
+      this.tileGrain = this.tileGrain || grainTexture(7, 0.9, 1.0, B.texture);
       cellMat.map = this.tileGrain;
     }
     const cells = new THREE.InstancedMesh(cellGeo, cellMat, n);
@@ -491,8 +531,8 @@ export class Renderer {
     this.cellMesh = cells;
 
     // Trail markers: instanced glowing slabs; detailed trails glow in their owner's colour.
-    const trailGeo = detailed ? new RoundedBoxGeometry(0.7, 0.34, 0.7, 2, 0.1) : new THREE.BoxGeometry(0.7, 0.34, 0.7);
-    const trailMat = new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.1, emissive: new THREE.Color(theme.trailGlow), emissiveIntensity: detailed ? 0.08 : 0.35 });
+    const trailGeo = detailed ? new RoundedBoxGeometry(0.7, 0.34, 0.7, B.bevel, 0.1) : new THREE.BoxGeometry(0.7, 0.34, 0.7);
+    const trailMat = lit({ roughness: 0.4, metalness: 0.1, emissive: new THREE.Color(theme.trailGlow), emissiveIntensity: detailed ? 0.08 : 0.35 });
     if (detailed) {
       trailMat.onBeforeCompile = (sh) => {
         sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>',
@@ -516,13 +556,13 @@ export class Renderer {
       const group = new THREE.Group();
       const color = new THREE.Color(theme.players[i % theme.players.length]);
       const bodyMat = detailed
-        ? new THREE.MeshPhysicalMaterial({ color: color, roughness: 0.25, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.15, emissive: color, emissiveIntensity: 0.2 })
-        : new THREE.MeshStandardMaterial({ color: color, roughness: 0.35, metalness: 0.25, emissive: color, emissiveIntensity: 0.25 });
-      const body = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.9, detailed ? 32 : 20), bodyMat);
+        ? lit({ color: color, roughness: 0.25, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.15, emissive: color, emissiveIntensity: 0.2 })
+        : lit({ color: color, roughness: 0.35, metalness: 0.25, emissive: color, emissiveIntensity: 0.25 });
+      const body = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.9, B.round), bodyMat);
       body.position.y = 0.6;
       body.castShadow = true;
       const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(0.55, 0.07, 10, 28),
+        new THREE.TorusGeometry(0.55, 0.07, Math.max(6, Math.round(B.round / 3)), Math.max(16, B.round)),
         new THREE.MeshBasicMaterial({ color: color })
       );
       ring.rotation.x = Math.PI / 2;
@@ -530,8 +570,8 @@ export class Renderer {
       group.add(body, ring);
       let beacon = null;
       if (detailed) {
-        beacon = new THREE.Mesh(new THREE.SphereGeometry(0.17, 20, 14),
-          new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 2.2, roughness: 0.3 }));
+        beacon = new THREE.Mesh(new THREE.SphereGeometry(0.17, Math.max(10, Math.round(B.round * 0.6)), Math.max(7, Math.round(B.round * 0.4))),
+          lit({ color: color, emissive: color, emissiveIntensity: 2.2, roughness: 0.3 }));
         beacon.position.y = 1.12;
         beacon.castShadow = true;
         beacon.layers.set(LAYER_GAME);
@@ -792,7 +832,7 @@ export class Renderer {
           const k = 1 - a / life;
           base.lerp(this.white, 0.7 * k).multiplyScalar(1 + 0.6 * k);
           if (age === 0 && moving && n < 60) {
-            this._emitSparks((i % w) - w / 2 + 0.5, ((i / w) | 0) - h / 2 + 0.5, this.playerColor(owner - 1), 3);
+            this._emitSparks((i % w) - w / 2 + 0.5, ((i / w) | 0) - h / 2 + 0.5, this.playerColor(owner - 1), this.q.budget.sparks);
             n++;
           }
           this.flashes.set(i, a);
@@ -813,7 +853,7 @@ export class Renderer {
 
   _postKey(w, h) {
     const g = this.q;
-    return g.post ? [g.ao, g.bloom, g.grade, g.antialias, w, h, this.pixelRatio].join('|') : 'none';
+    return g.post ? [g.ao, g.bloom, g.grade, g.antialias, w, h, this.pixelRatio, g.budget.bloomRes, g.budget.aoRes].join('|') : 'none';
   }
 
   _buildPost(w, h) {
@@ -828,7 +868,7 @@ export class Renderer {
       composer.setSize(w, h);
       composer.addPass(new RenderPass(this.scene, this.camera));
       if (g.ao !== 'off') {
-        const ao = new GTAOPass(this.scene, this.camera, pw, ph);
+        const ao = atScale(new GTAOPass(this.scene, this.camera, pw, ph), g.budget.aoRes);
         ao.output = GTAOPass.OUTPUT.Default;
         ao.blendIntensity = 0.7;
         ao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.4, thickness: 1.0, scale: 1.0, samples: g.ao === 'high' ? 16 : 8 });
@@ -837,7 +877,7 @@ export class Renderer {
       }
       if (g.bloom === 'on') {
         // High threshold: only beacons, glowing trails and sparks bloom.
-        composer.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.4, 0.88));
+        composer.addPass(atScale(new UnrealBloomPass(new THREE.Vector2(w, h), 0.5, 0.4, 0.88), g.budget.bloomRes));
       }
       if (g.grade === 'on') composer.addPass(new ShaderPass(GradeShader));
       composer.addPass(new OutputPass());

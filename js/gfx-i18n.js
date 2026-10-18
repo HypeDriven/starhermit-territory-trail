@@ -5,6 +5,7 @@
 
 const EN = {
   graphics: 'Graphics', quality: 'Quality', auto: 'Auto (detected: {tier})', fromPreset: 'From preset ({tier})',
+  level: 'Level {n}',
   renderScale: 'Render scale', adaptive: 'Adaptive resolution', showFps: 'Show frame rate',
   postUnavailable: 'Post-processing is unavailable on this device; effects that need it are skipped.',
   cat: { shadows: 'Shadows', ao: 'Ambient occlusion', bloom: 'Bloom', grade: 'Color grade', antialias: 'Anti-aliasing', detail: 'Surface detail', particles: 'Particles', background: 'Ambient motion' },
@@ -18,6 +19,7 @@ const GB = Object.assign({}, EN, {
 
 const ES = {
   graphics: 'Gráficos', quality: 'Calidad', auto: 'Automática (detectada: {tier})', fromPreset: 'Según el preajuste ({tier})',
+  level: 'Nivel {n}',
   renderScale: 'Escala de renderizado', adaptive: 'Resolución adaptativa', showFps: 'Mostrar fotogramas por segundo',
   postUnavailable: 'El posprocesado no está disponible en este dispositivo; se omiten los efectos que lo necesitan.',
   cat: { shadows: 'Sombras', ao: 'Oclusión ambiental', bloom: 'Resplandor', grade: 'Corrección de color', antialias: 'Antialiasing', detail: 'Detalle de superficies', particles: 'Partículas', background: 'Movimiento ambiental' },
@@ -32,6 +34,7 @@ const ES419 = Object.assign({}, ES, {
 
 const DE = {
   graphics: 'Grafik', quality: 'Qualität', auto: 'Automatisch (erkannt: {tier})', fromPreset: 'Laut Voreinstellung ({tier})',
+  level: 'Stufe {n}',
   renderScale: 'Renderskalierung', adaptive: 'Adaptive Auflösung', showFps: 'Bildrate anzeigen',
   postUnavailable: 'Nachbearbeitung ist auf diesem Gerät nicht verfügbar; Effekte, die sie brauchen, entfallen.',
   cat: { shadows: 'Schatten', ao: 'Umgebungsverdeckung', bloom: 'Bloom', grade: 'Farbkorrektur', antialias: 'Kantenglättung', detail: 'Oberflächendetails', particles: 'Partikel', background: 'Umgebungsbewegung' },
@@ -41,6 +44,7 @@ const DE = {
 
 const FR = {
   graphics: 'Graphismes', quality: 'Qualité', auto: 'Automatique (détectée : {tier})', fromPreset: 'Selon le préréglage ({tier})',
+  level: 'Niveau {n}',
   renderScale: 'Échelle de rendu', adaptive: 'Résolution adaptative', showFps: 'Afficher les images par seconde',
   postUnavailable: 'Le post-traitement n’est pas disponible sur cet appareil ; les effets qui en dépendent sont ignorés.',
   cat: { shadows: 'Ombres', ao: 'Occlusion ambiante', bloom: 'Halo lumineux', grade: 'Étalonnage des couleurs', antialias: 'Anticrénelage', detail: 'Détail des surfaces', particles: 'Particules', background: 'Mouvement ambiant' },
@@ -54,6 +58,7 @@ const FRCA = Object.assign({}, FR, {
 
 const PT = {
   graphics: 'Gráficos', quality: 'Qualidade', auto: 'Automática (detectada: {tier})', fromPreset: 'Da predefinição ({tier})',
+  level: 'Nível {n}',
   renderScale: 'Escala de renderização', adaptive: 'Resolução adaptativa', showFps: 'Mostrar taxa de quadros',
   postUnavailable: 'O pós-processamento não está disponível neste dispositivo; os efeitos que dependem dele são ignorados.',
   cat: { shadows: 'Sombras', ao: 'Oclusão de ambiente', bloom: 'Brilho', grade: 'Correção de cor', antialias: 'Antisserrilhamento', detail: 'Detalhe das superfícies', particles: 'Partículas', background: 'Movimento ambiente' },
@@ -63,6 +68,7 @@ const PT = {
 
 const IT = {
   graphics: 'Grafica', quality: 'Qualità', auto: 'Automatica (rilevata: {tier})', fromPreset: 'Dal preset ({tier})',
+  level: 'Livello {n}',
   renderScale: 'Scala di rendering', adaptive: 'Risoluzione adattiva', showFps: 'Mostra frequenza fotogrammi',
   postUnavailable: 'La post-elaborazione non è disponibile su questo dispositivo; gli effetti che la richiedono vengono saltati.',
   cat: { shadows: 'Ombre', ao: 'Occlusione ambientale', bloom: 'Bagliore', grade: 'Correzione colore', antialias: 'Antialiasing', detail: 'Dettaglio superfici', particles: 'Particelle', background: 'Movimento ambientale' },

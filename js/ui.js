@@ -430,7 +430,8 @@ export const ui = {
     if (!sum || !this.gfxInfo) return;
     const T = gfxStrings(locale());
     const info = this.gfxInfo(T.words);
-    sum.textContent = info.gpu + ' · ' + info.summary + (info.fps ? ' · ' + info.fps + ' fps' : '');
+    const lv = Number.isFinite(info.level) ? T.level.replace('{n}', info.level) : null;
+    sum.textContent = [info.gpu, lv, info.summary].filter(Boolean).join(' · ') + (info.fps ? ' · ' + info.fps + ' fps' : '');
     sum.dataset.preset = info.resolved.preset;
     const note = $('gfx-post-note');
     if (note) note.hidden = !info.postFailed;

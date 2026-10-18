@@ -348,6 +348,7 @@ async function runGraphics(browser, name, ctxOpts) {
     await page.waitForTimeout(400); // a few frames through the post chain
   }
   await page.waitForFunction(() => /2048² shadows/.test(document.getElementById('gfx-summary').textContent), null, { timeout: 5000 });
+  if (!/ · Level 0 · /.test(await page.textContent('#gfx-summary'))) throw new Error(`${name}: summary lacks the hardware level: ${await page.textContent('#gfx-summary')}`);
   ok(`${name}: presets Low → Ultra → High applied ("${(await page.textContent('#gfx-summary')).slice(-60)}")`);
 
   await page.locator('#gfx-bloom').scrollIntoViewIfNeeded();
