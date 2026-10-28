@@ -23,7 +23,6 @@ const enUS = {
   results: 'Results', retry: 'Retry', next: 'Next', home: 'Home', done: 'Done', howToPlay: 'How to play', close: 'Close',
   hostedTitle: 'Hosted play', notConnected: 'Not connected.', quickJoin: 'Quick join', createRoom: 'Create room',
   startRound: 'Start round', leaveRoom: 'Leave room',
-  hostedInfo: 'Online rooms run on StarHermit realtime: the first seat simulates the round, everyone else steers their marker. Empty seats are filled by rivals. Late joiners spectate the live round and play the next one.',
   hostedOffline: 'Hosted play needs a StarHermit launch (online).',
   boardSummary: 'Board summary',
   progressSummary: 'Journey progress: {n} / {total} stages.', newHere: 'New here? Start with Learn.',
@@ -102,6 +101,12 @@ const enUS = {
     'Crowded Field', 'Threading', 'Bold Frontier', 'Counter Cut', 'Hold the Line', 'Squeeze', 'High Stakes', 'Mastery: Duel',
     'Sprint', 'Clockwork', 'Blitz', 'Thin Ice', 'Deadline', 'Rapid Claim', 'Rush Hour', 'Mastery: Speed',
     'Grand Arena', 'Six Ways', 'Gauntlet', 'Full Court', 'Dominion', 'Last Light', 'Summit', 'Mastery: Trail']),
+  hostedInfo: 'Online rooms run on StarHermit: the StarHermit server referees every round, and each player steers their own marker. Empty seats are filled by rivals when the host starts the round.',
+  hostedResultServer: 'Result recorded by the StarHermit server. Reason: {reason}.',
+  optionsNote: 'Volumes, graphics quality, language, larger text, high contrast, reduced motion and problem reports are in the StarHermit Options.',
+  openOptions: 'Open Options',
+  keyBindings: 'Key bindings',
+  reasonAbandoned: 'every player left',
 };
 
 const enGB = {
@@ -127,7 +132,6 @@ const es419 = {
   results: 'Resultados', retry: 'Reintentar', next: 'Siguiente', home: 'Inicio', done: 'Listo', howToPlay: 'Cómo jugar', close: 'Cerrar',
   hostedTitle: 'Juego en línea', notConnected: 'Sin conexión.', quickJoin: 'Unirse rápido', createRoom: 'Crear sala',
   startRound: 'Empezar ronda', leaveRoom: 'Salir de la sala',
-  hostedInfo: 'Las salas en línea usan el tiempo real de StarHermit: el primer asiento simula la ronda y los demás dirigen su marcador. Los asientos vacíos los ocupan rivales. Quien llega tarde mira la ronda en curso y juega la siguiente.',
   hostedOffline: 'El juego en línea necesita un inicio desde StarHermit (con conexión).',
   boardSummary: 'Resumen del tablero',
   progressSummary: 'Progreso de la travesía: {n} / {total} etapas.', newHere: '¿Eres nuevo? Empieza con Aprender.',
@@ -206,6 +210,12 @@ const es419 = {
     'Campo abarrotado', 'Enhebrar', 'Frontera audaz', 'Contracorte', 'Mantener la línea', 'Apretón', 'Mucho en juego', 'Maestría: duelo',
     'Esprint', 'Relojería', 'Ataque relámpago', 'Hielo fino', 'Fecha límite', 'Conquista rápida', 'Hora pico', 'Maestría: velocidad',
     'Gran arena', 'Seis caminos', 'Desafío final', 'Cancha llena', 'Dominio', 'Última luz', 'Cumbre', 'Maestría: rastro']),
+  hostedInfo: 'Las salas en línea funcionan en StarHermit: el servidor de StarHermit arbitra cada ronda y cada jugador dirige su propio marcador. Los asientos vacíos los ocupan rivales cuando el anfitrión inicia la ronda.',
+  hostedResultServer: 'Resultado registrado por el servidor de StarHermit. Motivo: {reason}.',
+  optionsNote: 'El volumen, la calidad gráfica, el idioma, el texto más grande, el alto contraste, el movimiento reducido y los reportes de problemas están en las Opciones de StarHermit.',
+  openOptions: 'Abrir Opciones',
+  keyBindings: 'Asignación de teclas',
+  reasonAbandoned: 'todos los jugadores se fueron',
 };
 
 const esES = {
@@ -232,7 +242,6 @@ const deDE = {
   results: 'Ergebnis', retry: 'Nochmal', next: 'Weiter', home: 'Start', done: 'Fertig', howToPlay: 'Spielanleitung', close: 'Schließen',
   hostedTitle: 'Online spielen', notConnected: 'Nicht verbunden.', quickJoin: 'Schnell beitreten', createRoom: 'Raum erstellen',
   startRound: 'Runde starten', leaveRoom: 'Raum verlassen',
-  hostedInfo: 'Online-Räume laufen über StarHermit Echtzeit: Der erste Platz simuliert die Runde, alle anderen steuern ihre Figur. Leere Plätze übernehmen Gegner. Wer später kommt, schaut die laufende Runde zu und spielt die nächste.',
   hostedOffline: 'Online spielen braucht einen Start über StarHermit (online).',
   boardSummary: 'Spielfeldübersicht',
   progressSummary: 'Reisefortschritt: {n} / {total} Etappen.', newHere: 'Neu hier? Fang mit Lernen an.',
@@ -311,6 +320,12 @@ const deDE = {
     'Volles Feld', 'Einfädeln', 'Kühne Grenze', 'Konterschnitt', 'Die Stellung halten', 'In der Klemme', 'Hoher Einsatz', 'Meisterschaft: Duell',
     'Sprint', 'Uhrwerk', 'Blitz', 'Dünnes Eis', 'Fristende', 'Schnelle Eroberung', 'Stoßzeit', 'Meisterschaft: Tempo',
     'Große Arena', 'Sechs Wege', 'Spießrutenlauf', 'Volles Haus', 'Herrschaft', 'Letztes Licht', 'Gipfel', 'Meisterschaft: Spur']),
+  hostedInfo: 'Online-Räume laufen über StarHermit: Der StarHermit-Server leitet jede Runde, und alle steuern ihre eigene Figur. Leere Plätze übernehmen Gegner, sobald der Gastgeber die Runde startet.',
+  hostedResultServer: 'Ergebnis vom StarHermit-Server festgehalten. Grund: {reason}.',
+  optionsNote: 'Lautstärke, Grafikqualität, Sprache, größere Schrift, hoher Kontrast, reduzierte Bewegung und Problemberichte findest du in den StarHermit-Optionen.',
+  openOptions: 'Optionen öffnen',
+  keyBindings: 'Tastenbelegung',
+  reasonAbandoned: 'alle Spieler sind gegangen',
 };
 
 const frFR = {
@@ -329,7 +344,6 @@ const frFR = {
   results: 'Résultats', retry: 'Réessayer', next: 'Suivant', home: 'Accueil', done: 'Terminé', howToPlay: 'Comment jouer', close: 'Fermer',
   hostedTitle: 'Jeu en ligne', notConnected: 'Non connecté.', quickJoin: 'Rejoindre vite', createRoom: 'Créer une salle',
   startRound: 'Lancer la manche', leaveRoom: 'Quitter la salle',
-  hostedInfo: 'Les salles en ligne utilisent le temps réel de StarHermit : la première place simule la manche, les autres dirigent leur marqueur. Les places vides sont occupées par des rivaux. Les retardataires regardent la manche en cours et jouent la suivante.',
   hostedOffline: 'Le jeu en ligne nécessite un lancement depuis StarHermit (en ligne).',
   boardSummary: 'Résumé du plateau',
   progressSummary: 'Progression du parcours : {n} / {total} étapes.', newHere: 'Nouveau ? Commencez par Apprendre.',
@@ -408,6 +422,12 @@ const frFR = {
     'Terrain bondé', 'Enfilade', 'Frontière audacieuse', 'Contre-coupe', 'Tenir la ligne', 'Étau', 'Gros enjeux', 'Maîtrise : duel',
     'Sprint', 'Mécanique', 'Blitz', 'Glace mince', 'Échéance', 'Conquête éclair', 'Heure de pointe', 'Maîtrise : vitesse',
     'Grande arène', 'Six voies', 'Parcours du combattant', 'Terrain plein', 'Domination', 'Dernière lueur', 'Sommet', 'Maîtrise : tracé']),
+  hostedInfo: 'Les salles en ligne fonctionnent sur StarHermit : le serveur StarHermit arbitre chaque manche et chaque joueur dirige son propre marqueur. Les places vides sont occupées par des rivaux quand l’hôte lance la manche.',
+  hostedResultServer: 'Résultat enregistré par le serveur StarHermit. Raison : {reason}.',
+  optionsNote: 'Le volume, la qualité graphique, la langue, le texte agrandi, le contraste élevé, la réduction des animations et les signalements de problèmes se trouvent dans les Options StarHermit.',
+  openOptions: 'Ouvrir les Options',
+  keyBindings: 'Touches',
+  reasonAbandoned: 'tous les joueurs sont partis',
 };
 
 const frCA = {
@@ -432,7 +452,6 @@ const ptBR = {
   results: 'Resultados', retry: 'Tentar de novo', next: 'Próxima', home: 'Início', done: 'Concluído', howToPlay: 'Como jogar', close: 'Fechar',
   hostedTitle: 'Jogo online', notConnected: 'Não conectado.', quickJoin: 'Entrar rápido', createRoom: 'Criar sala',
   startRound: 'Iniciar rodada', leaveRoom: 'Sair da sala',
-  hostedInfo: 'As salas online rodam no tempo real do StarHermit: o primeiro lugar simula a rodada e os demais controlam seu marcador. Lugares vazios são ocupados por rivais. Quem chega depois assiste à rodada atual e joga a próxima.',
   hostedOffline: 'O jogo online precisa ser aberto pelo StarHermit (online).',
   boardSummary: 'Resumo do tabuleiro',
   progressSummary: 'Progresso da jornada: {n} / {total} fases.', newHere: 'Novo por aqui? Comece por Aprender.',
@@ -511,6 +530,12 @@ const ptBR = {
     'Campo lotado', 'Alinhavando', 'Fronteira ousada', 'Contracorte', 'Segure a linha', 'Aperto', 'Alto risco', 'Maestria: duelo',
     'Arrancada', 'Relojoaria', 'Blitz', 'Gelo fino', 'Prazo final', 'Conquista rápida', 'Hora do rush', 'Maestria: velocidade',
     'Grande arena', 'Seis caminhos', 'Corredor polonês', 'Quadra cheia', 'Domínio', 'Última luz', 'Cume', 'Maestria: rastro']),
+  hostedInfo: 'As salas online rodam no StarHermit: o servidor do StarHermit arbitra cada rodada e cada jogador controla seu próprio marcador. Lugares vazios são ocupados por rivais quando o anfitrião inicia a rodada.',
+  hostedResultServer: 'Resultado registrado pelo servidor do StarHermit. Motivo: {reason}.',
+  optionsNote: 'Volume, qualidade gráfica, idioma, texto maior, alto contraste, movimento reduzido e relatórios de problemas ficam nas Opções do StarHermit.',
+  openOptions: 'Abrir Opções',
+  keyBindings: 'Teclas',
+  reasonAbandoned: 'todos os jogadores saíram',
 };
 
 const itIT = {
@@ -529,7 +554,6 @@ const itIT = {
   results: 'Risultati', retry: 'Riprova', next: 'Avanti', home: 'Home', done: 'Fine', howToPlay: 'Come si gioca', close: 'Chiudi',
   hostedTitle: 'Gioco online', notConnected: 'Non connesso.', quickJoin: 'Entra subito', createRoom: 'Crea stanza',
   startRound: 'Avvia round', leaveRoom: 'Esci dalla stanza',
-  hostedInfo: 'Le stanze online usano il tempo reale di StarHermit: il primo posto simula il round, tutti gli altri guidano il proprio segnalino. I posti vuoti sono occupati da rivali. Chi arriva tardi guarda il round in corso e gioca il successivo.',
   hostedOffline: 'Il gioco online richiede un avvio da StarHermit (online).',
   boardSummary: 'Riepilogo della tavola',
   progressSummary: 'Avanzamento del viaggio: {n} / {total} livelli.', newHere: 'Sei nuovo? Inizia da Impara.',
@@ -608,6 +632,12 @@ const itIT = {
     'Campo affollato', 'Infilare l’ago', 'Frontiera audace', 'Contrattacco', 'Tenere la linea', 'Morsa', 'Posta alta', 'Maestria: duello',
     'Scatto', 'Orologeria', 'Blitz', 'Ghiaccio sottile', 'Scadenza', 'Conquista rapida', 'Ora di punta', 'Maestria: velocità',
     'Grande arena', 'Sei vie', 'Prova del fuoco', 'Campo pieno', 'Dominio', 'Ultima luce', 'Vetta', 'Maestria: scia']),
+  hostedInfo: 'Le stanze online girano su StarHermit: il server di StarHermit arbitra ogni round e ogni giocatore guida il proprio segnalino. I posti vuoti vengono occupati da rivali quando l’host avvia il round.',
+  hostedResultServer: 'Risultato registrato dal server di StarHermit. Motivo: {reason}.',
+  optionsNote: 'Volume, qualità grafica, lingua, testo più grande, contrasto elevato, movimento ridotto e segnalazioni di problemi si trovano nelle Opzioni di StarHermit.',
+  openOptions: 'Apri Opzioni',
+  keyBindings: 'Tasti',
+  reasonAbandoned: 'tutti i giocatori sono usciti',
 };
 
 export const STRINGS = {
