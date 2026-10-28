@@ -1,0 +1,29 @@
+# A hosted round on the local platform, the guest's side (bob, a phone):
+# Hosted Play, Quick join alice's room, then steer by the touch pad until the
+# result the server script records.
+# viewport 390x844@2
+until 900 =Hosted Play
+frames 60
+touch =Hosted Play
+until 300 =Quick join
+frames 10
+touch =Quick join
+until 600 =Leave room
+frames 10
+save online-guest-room
+until 3000 Hosted round: claim territory
+frames 60
+save online-guest-play
+repeat 4000 until Result recorded by the StarHermit server
+  touch =Move down
+  frames 10
+  touch =Move right
+  frames 10
+  touch =Move up
+  frames 10
+  touch =Move left
+  frames 10
+end
+frames 30
+save online-guest-results
+expect Standings

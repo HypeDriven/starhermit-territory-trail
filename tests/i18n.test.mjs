@@ -1,4 +1,4 @@
-// i18n.test.mjs — every string key used in index.html and js/*.js exists in
+// i18n.test.mjs — every string key the engine client (native/*.ts) uses exists in
 // all nine locales, with the same {placeholders} as US English.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,26 +9,29 @@ import { stageName, lessonTitle, lessonText, difficultyName, challengeName, chal
 
 const ROOT = new URL('..', import.meta.url);
 const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'];
-const html = readFileSync(new URL('index.html', ROOT), 'utf8');
-const code = readdirSync(new URL('js/', ROOT)).filter((f) => f.endsWith('.js') && f !== 'strings.js')
-  .map((f) => readFileSync(new URL('js/' + f, ROOT), 'utf8')).join('\n');
+// The engine client (native/*.ts) and the shared modules it shows text from.
+const files = readdirSync(new URL('native/', ROOT)).filter((f) => f.endsWith('.ts')).map((f) => 'native/' + f)
+  .concat(['js/i18n.js', 'js/online.js']);
+const code = files.map((f) => readFileSync(new URL(f, ROOT), 'utf8')).join('\n');
 
 const used = new Set();
-for (const m of html.matchAll(/data-i18n(?:-aria)?="([^"]+)"/g)) used.add(m[1]);
+for (const m of code.matchAll(/\bT\(\s*"([A-Za-z0-9]+)"(?!\s*\+)/g)) used.add(m[1]);
 for (const m of code.matchAll(/\bt\('([A-Za-z0-9]+)'(?!\s*\+)/g)) used.add(m[1]);
-for (const m of code.matchAll(/\bsay\('([A-Za-z0-9]+)'/g)) used.add(m[1]);
-for (const m of code.matchAll(/\bkey: '([A-Za-z0-9]+)'/g)) used.add(m[1]);
-// Keys built at runtime (tables and concatenation).
-for (const m of code.matchAll(/'((?:sync|reason|rej|ach|pal|dir)[A-Z][A-Za-z]*)'/g)) used.add(m[1]);
+for (const m of code.matchAll(/\bkey: ["']([A-Za-z0-9]+)["']/g)) used.add(m[1]);
+for (const m of code.matchAll(/\btext: T\("([A-Za-z0-9]+)"/g)) used.add(m[1]);
+for (const m of code.matchAll(/["']((?:sync|reason|rej|ach|pal|dir|mode)[A-Z][A-Za-z]*)["']/g)) used.add(m[1]);
 for (const k of ['dirUp', 'dirDown', 'dirLeft', 'dirRight', 'palDefault', 'palDeuteranopia', 'palProtanopia', 'palTritanopia',
-  'achFirstClaimDesc', 'achMechanicDesc', 'achStreakDesc', 'achSummitDesc', 'achLongRoadDesc']) used.add(k);
+  'achFirstClaimDesc', 'achMechanicDesc', 'achStreakDesc', 'achSummitDesc', 'achLongRoadDesc', 'modeJourneyDesc', 'modePracticeDesc',
+  'modeDailyDesc', 'modeChallengeDesc', 'modeLearnDesc', 'modeHostedDesc', 'rivalN', 'playerN', 'you', 'hostedHint', 'hostedNone',
+  'joinedRoom', 'roomLobby', 'creatingRoom', 'lookingForRoom', 'noOpenRooms', 'hostedUnavailable', 'roundStartingStatus', 'leftRoom',
+  'notConnected', 'roomGone']) used.add(k);
 for (const s of STAGES) used.add('stage' + s.index);
 LESSONS.forEach((l, i) => { used.add('lesson' + (i + 1) + 'Title'); used.add('lesson' + (i + 1) + 'Text'); });
-const sh = new Set(['lbPosting', 'lbNotPosted', 'lbRank', 'lbPosted']); // sh-i18n.js keys
+const sh = new Set(['lbPosting', 'lbNotPosted', 'lbRank', 'lbPosted', 'signIn', 'invite', 'copied', 'copyFail', 'signedOut', 'expiredTitle', 'expiredBody', 'termsTitle', 'termsBody', 'relaunch', 'playLocal']); // sh-i18n.js keys
 const vars = (s) => [...String(s).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');
 
 test('ships the nine locales', () => assert.deepEqual(Object.keys(STRINGS).sort(), [...LOCALES].sort()));
-test('found the keys in markup and code', () => assert.ok(used.size > 150, String(used.size)));
+test('found the keys in the client code', () => assert.ok(used.size > 150, String(used.size)));
 for (const loc of LOCALES) {
   test(`${loc} has every used key with matching placeholders`, () => {
     const missing = [...used].filter((k) => !sh.has(k) && typeof STRINGS[loc][k] !== 'string');

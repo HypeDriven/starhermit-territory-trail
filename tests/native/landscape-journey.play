@@ -1,0 +1,28 @@
+# A phone held landscape (844 x 390 at DPR 3): the status drawer, Journey
+# stage 1 from Play steered off the board by the touch pad (eliminated), the
+# results, then Next (stage 2) and Leave round from the pause screen.
+# viewport 844x390@3
+until 600 Territory Trail
+frames 60
+touch =Open status panel
+until 300 =Close
+frames 10
+save tt-land-drawer
+touch =Close
+frames 10
+touch =Play
+until 300 Claim 60 cells
+frames 220
+save tt-land-play
+touch =Move up
+until 1200 =Eliminated
+frames 30
+save tt-land-results
+touch =Next
+until 300 Wide Loop
+frames 220
+touch =Pause game
+until 300 =Paused
+frames 10
+touch =Leave round
+until 300 New here?

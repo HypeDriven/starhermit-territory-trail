@@ -1,0 +1,98 @@
+/* Territory Trail — the browser build's index.html <style> rewritten
+   class-based for the engine's UI (`npm run css` converts it into
+   assets/ui-style.json). Element selectors, ids, body.high-contrast /
+   body.large-text and @media do not convert: every widget names its
+   classes, the breakpoints are layouts picked in native/screens.ts, high
+   contrast is a token set native/style.ts applies, larger text is the
+   runtime's text scale and the left-handed pad the game's option. */
+
+:root {
+  --bg: #0b1220; --panel: #131c30; --panel2: #1a2540; --text: #e8ecf3; --muted: #93a1ba;
+  --accent: #4ade80; --danger: #f87171; --focus: #7dd3fc;
+  --edge: #2c3a5c; --card-edge: #26355a; --rail-edge: #22304e; --ink: #062312;
+}
+
+* { box-sizing: border-box; }
+
+/* ------------------------------------------------------------- text */
+.text { color: var(--text); font-size: 16px; }
+.muted { color: var(--muted); font-size: 16px; }
+.small-muted { color: var(--muted); font-size: 14px; }
+.status-title { color: var(--text); font-size: 14.7px; font-weight: 700; }
+.h1 { color: var(--text); font-size: 35.2px; font-weight: 700; }
+.h2 { color: var(--text); font-size: 24px; font-weight: 700; }
+.h3 { color: var(--text); font-size: 18.7px; font-weight: 700; }
+.badge-text { color: var(--text); font-size: 13.6px; }
+.objective-text { color: var(--text); font-size: 16px; font-weight: 600; }
+.danger-text { color: #2b0707; font-size: 16px; font-weight: 700; }
+.countdown { color: var(--text); font-size: 80px; font-weight: 800; }
+.td { color: var(--text); font-size: 16px; }
+.td-muted { color: var(--muted); font-size: 16px; }
+.td-num { color: var(--text); font-size: 16px; font-weight: 700; text-align: end; }
+.btn-label { color: var(--text); font-size: 16px; }
+.btn-label-sub { color: var(--muted); font-size: 16px; }
+.btn-label-b { color: var(--text); font-size: 16px; font-weight: 700; }
+.wrap { color: var(--text); font-size: 16px; }
+.wrap-ink { color: var(--ink); font-size: 16px; font-weight: 700; text-align: center; }
+.toast-text { color: var(--text); font-size: 16px; text-align: center; }
+
+/* ------------------------------------------------------------- surfaces */
+.page { background: var(--bg); border-radius: 0; }
+.bar { background: var(--panel); border-radius: 0; }
+.rail { background: var(--panel); border-radius: 0; }
+.rail-line { background: var(--rail-edge); border-radius: 0; }
+.scrim { background: rgba(8, 12, 22, 0.92); border-radius: 0; }
+.scrim-top { background: rgba(8, 12, 22, 0.98); border-radius: 0; }
+.drawer-scrim { background: rgba(0, 0, 0, 0.5); border-radius: 0; }
+.title-scrim { background: radial-gradient(ellipse farthest-corner at center, rgba(8, 12, 22, 0.62) 0%, rgba(8, 12, 22, 0.78) 60%, rgba(8, 12, 22, 0.9) 100%); border-radius: 0; }
+.card { background: var(--panel); border: 1px solid var(--card-edge); border-radius: 14px; padding: 19.2px; }
+.rule-card { background: var(--panel); border: 1px solid var(--card-edge); border-radius: 14px; padding: 12.8px; }
+.badge { background: var(--panel2); border-radius: 16px; padding: 1.4px 6.8px; }
+.objective { background: rgba(10, 16, 30, 0.8); border-radius: 32px; padding: 6.4px 16px; }
+.danger { background: var(--danger); border-radius: 32px; padding: 4.8px 16px; }
+.score-line { border-bottom: 1px solid var(--rail-edge); border-radius: 0; padding: 4px 0; }
+.toast { background: var(--panel); border: 1px solid var(--accent); border-radius: 12px; padding: 9.6px 17.6px; }
+.fps { background: rgba(8, 12, 22, 0.75); border-radius: 6px; padding: 2.4px 6px; }
+
+/* ------------------------------------------------------------- buttons */
+.btn {
+  min-height: 44px; min-width: 44px; padding: 9.6px 16px;
+  background: var(--panel2); border: 1px solid var(--edge); border-radius: 10px;
+  color: var(--text); font-size: 16px; text-align: center;
+}
+.btn:hover { border-color: var(--focus); }
+.btn:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.btn:disabled { opacity: 0.45; }
+.btn-card {
+  min-height: 44px; padding: 9.6px 16px;
+  background: var(--panel2); border: 1px solid var(--edge); border-radius: 10px;
+  color: var(--text); font-size: 16px; text-align: start;
+}
+.btn-card:hover { border-color: var(--focus); }
+.btn-card:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.btn-primary {
+  min-height: 44px; min-width: 44px; padding: 9.6px 16px;
+  background: var(--accent); border: 1px solid var(--accent); border-radius: 10px;
+  color: var(--ink); font-size: 16px; font-weight: 700; text-align: center;
+}
+.btn-primary:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.btn-primary:disabled { opacity: 0.45; }
+.btn-play {
+  min-height: 44px; padding: 13.4px 42.2px;
+  background: var(--accent); border: 1px solid var(--accent); border-radius: 10px;
+  color: var(--ink); font-size: 19.2px; font-weight: 700; text-align: center;
+}
+.btn-play:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.btn-danger {
+  min-height: 44px; min-width: 44px; padding: 9.6px 16px;
+  background: var(--panel2); border: 1px solid var(--danger); border-radius: 10px;
+  color: var(--danger); font-size: 16px; text-align: center;
+}
+.btn-danger:hover { border-color: var(--focus); }
+.btn-danger:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.btn-pad {
+  min-height: 52px; min-width: 52px; padding: 0;
+  background: rgba(26, 37, 64, 0.75); border: 1px solid var(--edge); border-radius: 10px;
+  color: var(--text); font-size: 20.8px; text-align: center;
+}
+.btn-pad:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }

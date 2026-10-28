@@ -1,5 +1,7 @@
 # Known Issues — Territory Trail
 
+> History of the browser build (index.html, js/main.js, the DOM UI). The game now runs on the StarHermit engine; its current limitations are in spec.md › Known limitations.
+
 ## Test results
 
 | Check | Result |

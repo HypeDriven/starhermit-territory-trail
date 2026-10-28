@@ -1,0 +1,33 @@
+# A hosted round on the local platform, the host's side (alice, desktop):
+# Hosted Play, Create room, wait for bob, Start round (the two AI seats fill
+# the room), then steer by keys until the result the server script records.
+# viewport 1280x720@1
+until 900 =Hosted Play
+frames 30
+click =Hosted Play
+until 300 =Create room
+frames 10
+click =Create room
+until 600 =Start round
+frames 10
+save online-host-room
+until 3000 2 in lobby
+frames 20
+save online-host-lobby
+click =Start round
+until 1200 Hosted round: claim territory
+frames 60
+save online-host-play
+repeat 4000 until Result recorded by the StarHermit server
+  key ArrowUp 1
+  frames 12
+  key ArrowLeft 1
+  frames 12
+  key ArrowDown 1
+  frames 12
+  key ArrowRight 1
+  frames 12
+end
+frames 30
+save online-host-results
+expect Standings

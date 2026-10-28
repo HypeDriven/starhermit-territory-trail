@@ -1,0 +1,25 @@
+# Learn on a phone (390 x 844 at DPR 3) by finger: the setup list, the first
+# lesson (three turns on the touch pad) to its results, then Home.
+# viewport 390x844@3
+until 600 Territory Trail
+frames 60
+save tt-phone-title
+touch =Learn
+until 300 Steer your trail
+frames 20
+save tt-phone-setup
+touch Steer your trail
+until 300 Steer your trail:
+frames 220
+save tt-phone-play
+touch =Move up
+frames 20
+touch =Move left
+frames 20
+touch =Move down
+until 600 Lesson complete
+frames 30
+save tt-phone-results
+touch =Home
+until 300 Daily Challenge
+frames 10

@@ -1,13 +1,48 @@
 name=Territory Trail
 description=Leave your territory to draw trails, reconnect to claim land, and cut exposed rival trails.
-launch=index.html
 owner=2712e04e-461b-4d23-81ae-e40b429128a8
-server=score-script.js
+# The one server script: it referees every hosted room round (a room-bound
+# session that runs the rules on its 8 Hz tick, steers each seat from its
+# player's input and decides the result) and range-checks the total a
+# finished Journey, Daily or Challenge round posts to the high-score board
+# (what score-script.js did). Built from tools/server-head.js, js/rules.js and
+# tools/server-body.js (npm run server).
+server=server.js
 cover=cover.jpg
+
+# StarHermit engine script game: one package, played natively by the
+# StarHermit client and in browsers by the engine's web runtime. Browsers open
+# launch=index.html, the loader `npm run package` writes (it pins the engine
+# on wiki.starhermit.com by hash; never edit it). Re-run `npm run package`
+# after every change and commit index.html + starhermit-files.json.
+launch=index.html
+engine.api=1
+engine.entry=native/main.ts
+engine.version=1.21.0
+engine.minor=23
+engine.capabilities=platform,storage,clipboard
+
+# Keyboard actions (players rebind keys and pads in the runtime's Options).
+# The marker is also steered with the pointer or a finger: a swipe on the
+# board turns toward its dominant axis, a tap turns toward the tapped cell,
+# and on touch screens the on-screen pad's arrows steer.
+engine.group.up=Steering
 control.up=ArrowUp+KeyW | Steer up
 control.down=ArrowDown+KeyS | Steer down
 control.left=ArrowLeft+KeyA | Steer left
 control.right=ArrowRight+KeyD | Steer right
+engine.group.pause=Round
 control.pause=Escape+KeyP | Pause
 control.undo=KeyU | Undo (practice)
 control.camera=KeyC | Reset camera
+
+# Gamepad defaults (the browser build read the left stick and Start): the
+# left stick or the D-pad steers, Start pauses, West undoes in Practice and
+# the right stick press resets the camera.
+engine.gamepad.up=DpadUp+LeftStickUp
+engine.gamepad.down=DpadDown+LeftStickDown
+engine.gamepad.left=DpadLeft+LeftStickLeft
+engine.gamepad.right=DpadRight+LeftStickRight
+engine.gamepad.pause=Start
+engine.gamepad.undo=West
+engine.gamepad.camera=RightStickPress

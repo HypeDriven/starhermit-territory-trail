@@ -1,0 +1,62 @@
+# The menus on a desktop window: How to play, Settings (the palette and the
+# left-handed pad), the Daily started, paused by Escape, restarted and left,
+# Hosted play signed out, and the Learn list's "Claim land" lesson played by
+# keys (up, left, down, right back home) to its results.
+# viewport 1280x800@1
+until 600 Territory Trail
+frames 60
+click =Help
+until 300 Cross a rival
+frames 10
+save tt-help
+click =Close
+frames 10
+click =Settings
+until 300 Color palette
+frames 10
+click =Left-handed controls
+frames 10
+save tt-settings
+click =Done
+frames 10
+click Daily Challenge
+until 300 One shared seed for everyone today
+frames 240
+save tt-daily
+key Escape 1
+until 300 =Paused
+frames 10
+save tt-paused
+click =Restart
+until 300 One shared seed for everyone today
+frames 240
+key Escape 1
+until 300 =Paused
+frames 10
+click =Leave round
+until 300 New here?
+frames 10
+click =Hosted Play
+until 300 needs a StarHermit
+frames 10
+save tt-hosted-guest
+click =Back
+until 300 New here?
+frames 10
+click =Learn
+until 300 Claim land
+frames 10
+click Claim land
+until 300 Loop back into your own territory
+frames 240
+key ArrowUp 1
+frames 40
+key ArrowLeft 1
+frames 10
+key ArrowDown 1
+frames 45
+key ArrowRight 1
+until 900 =Lesson complete.
+frames 30
+save tt-claim-results
+expect Victory
