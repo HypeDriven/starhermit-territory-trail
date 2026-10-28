@@ -1,0 +1,92 @@
+# Every mode from the title's "Choose a mode" screen on a desktop window: the
+# Journey stage list (stage 2 started and left), Practice Calm (a claim by
+# keys, then Undo back to before it, then left), the Challenge Sprinter
+# (started and left), and the Daily, Learn and Hosted cards.
+# viewport 1280x800@1
+until 600 Territory Trail
+frames 60
+click =Choose a mode
+until 300 40 authored stages
+frames 10
+save tt-modes
+click Journey. 40 authored stages
+until 300 Authored progression
+frames 10
+click 2. Wide Loop
+until 300 Journey 2 — Wide Loop
+frames 220
+key Escape 1
+until 300 =Paused
+frames 10
+click =Leave round
+until 300 New here?
+frames 10
+click =Choose a mode
+until 300 Unranked, undo allowed
+frames 10
+click Practice. Unranked, undo allowed
+until 300 Unranked practice with undo
+frames 10
+click Calm. 0 rivals
+until 300 Practice (Calm)
+frames 220
+key ArrowUp 1
+frames 22
+key ArrowLeft 1
+frames 8
+key ArrowDown 1
+frames 30
+key ArrowRight 1
+until 120 ↩ Undo
+frames 8
+save tt-practice-claimed
+key KeyU 1
+frames 5
+click =↩ Undo
+frames 3
+save tt-practice-undone
+key Escape 1
+until 300 =Paused
+frames 10
+click =Leave round
+until 300 New here?
+frames 10
+click =Choose a mode
+until 300 Constrained goals
+frames 10
+click Challenge. Constrained goals
+until 300 Constrained goals. Ranked: no.
+frames 10
+click Sprinter. Claim 100 cells in only 400 ticks.
+until 300 Challenge — Sprinter
+frames 220
+key Escape 1
+until 300 =Paused
+frames 10
+click =Leave round
+until 300 New here?
+frames 10
+click =Choose a mode
+until 300 Interactive lessons
+frames 10
+click Learn. Interactive lessons
+until 300 Interactive lessons — one rule at a time
+frames 10
+click =Back
+until 300 New here?
+frames 10
+click =Choose a mode
+until 300 Online room
+frames 10
+click Hosted. Online room
+until 300 needs a StarHermit
+frames 10
+click =Back
+until 300 New here?
+frames 10
+click =Choose a mode
+until 300 One seed per UTC day
+frames 10
+click Daily. One seed per UTC day
+until 300 One shared seed for everyone today
+frames 10

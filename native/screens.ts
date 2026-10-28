@@ -22,7 +22,7 @@ import * as platform from "./platform.ts";
 import { token } from "./style.ts";
 import {
   app, cameraReset, click, closeOverlay, fresh, field, goHome, hostedJoin, hostedLeaveButton, hostedStart, invite, keysFor, later,
-  leaveFromPause, localPlayer, nextRound, openHosted, openOverlay, openSetup, pauseGame, play, relaunch, restartRound, resultsHeadline,
+  leaveFromPause, localPlayer, nextRound, openHosted, openModes, openOverlay, openSetup, pauseGame, play, relaunch, restartRound, resultsHeadline,
   resultsLbLine, resumeGame, rosterNames, sendDir, signIn, startChallenge, startDaily, startJourneyStage, startLesson, startPractice,
   undo, viewState, type Msg,
 } from "./main.ts";
@@ -355,6 +355,7 @@ function titleScreen(L0: Layout, pf: Box): void {
         { id: "btn-daily", text: T("dailyButton", { day: d.day }), act: startDaily },
         { id: "btn-learn", text: T("learn"), act: () => openSetup("learn") },
         { id: "btn-hosted", text: T("hostedPlay"), act: openHosted },
+        { id: "btn-modes", text: T("chooseMode"), act: openModes },
       ], w, 9.6, "center");
       const acct: Btn[] = [];
       if (!platform.signedIn()) acct.push({ id: "btn-signin", text: S("signIn"), act: signIn });

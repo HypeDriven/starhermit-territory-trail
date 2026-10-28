@@ -23,7 +23,7 @@
     "native/platform.ts": {"sha256": "5f6032d2b49412f643972c8d8bac6f9cb625d97599c075deac6b767847872a8b", "size": 12659},
     "native/quality.ts": {"sha256": "c3fbdbda65ca8c3a2cc32457cbb47df1506878276ad1a65ad51270c44a8745ce", "size": 3718},
     "native/render.ts": {"sha256": "2bca76b38643041379b8f779bb85ea7b41954421a69ba64dcbfdbb38c7302926", "size": 31087},
-    "native/screens.ts": {"sha256": "c58e24b734e969bd2d89deab2a510d3481e00dbbe6b39e1a7306986cb688ab49", "size": 32226},
+    "native/screens.ts": {"sha256": "c280221b8b3f0d4d4fc2e1e0655855fde1937601357a1d6c709eacb55bca6cd2", "size": 32305},
     "native/style.ts": {"sha256": "99e9814f8ab4fa1cb8e462c10347b58cd3749bed1cd887f584aef5b8557f0d56", "size": 2684},
     "server.js": {"sha256": "99cd8c12da3f797c5ef550e33aa415ca30d940815408c4e48c7cbdc9afe6448a", "size": 33590},
     "sfx/claim-burst.opus": {"sha256": "72d658dc433130074b2f34515b85ac0ae80118694fc9f873dc23ed65bef9d908", "size": 21729},

@@ -3,7 +3,7 @@
 // index.html that `npm run package` writes, at a desktop viewport, a phone
 // (DPR 3) and a phone held sideways (DPR 3): on the desktop Learn's "Claim
 // land" by keys (out, across, back home) to its results, the Daily paused by
-// Escape and left; on the phone "Steer your trail" by the touch pad's arrows
+// Escape and left, Practice from Choose a mode with Undo; on the phone "Steer your trail" by the touch pad's arrows
 // to its results; sideways the same lesson by swipes on the board. Widgets
 // are found through the page's accessibility mirror of the engine's UI.
 // Screenshots of each step go to --shots. Fails on console errors or
@@ -130,6 +130,17 @@ for (const v of views) {
       await find('Resume').waitFor({ timeout: 15000 });
       await page.waitForTimeout(400);
       await shot('pause');
+      await press('Leave round');
+      await waitText('New here? Start with Learn.');
+      await press('Choose a mode');
+      await press('Practice. Unranked, undo allowed');
+      await press('Calm. 0 rivals · 24×24');
+      await waitText(/Practice \(Calm\)/);
+      await page.waitForTimeout(3600);
+      await shot('practice');
+      await press('↩ Undo');
+      await page.keyboard.press('Escape');
+      await find('Resume').waitFor({ timeout: 15000 });
       await press('Leave round');
       await waitText('New here? Start with Learn.');
     } else {
