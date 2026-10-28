@@ -230,17 +230,18 @@ export function openSetup(mode: "journey" | "practice" | "challenge" | "learn"):
 }
 export function openModes(): void { app.phase = "mode-select"; show("modes"); }
 export function pauseGame(): void {
-  if (!app.session || app.phase !== "active") return;
-  app.session.pause();
+  if (!(app.session || app.hosted?.match) || app.phase !== "active") return;
+  // a hosted round keeps running on the server behind the pause screen (Resume or Leave round)
+  app.session?.pause();
   app.phase = "paused";
   show("pause");
   announce(T("announcePaused"));
 }
 export function resumeGame(): void {
-  if (!app.session) return;
+  if (!app.session && !app.hosted?.match) return;
   app.phase = "active";
   showHudOnly();
-  app.session.resume();
+  app.session?.resume();
 }
 export function restartRound(): void {
   const md = app.modeData;
