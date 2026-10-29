@@ -38,7 +38,7 @@
     "sfx/ui-click.opus": {"sha256": "2175d7a10d60129f887aaec7d1cefbbf58ceb8d83c9ee9d44abc3564ed652a3d", "size": 10669},
     "sfx/warning-ping.opus": {"sha256": "0a533eaf03f2a5c791e04d8163a55f34f6ec3861b7d975ab1720e47030a0160f", "size": 12804},
     "sfx/win-fanfare.opus": {"sha256": "9074e45ad429b35146b9da43cb81020bde4b91775dbc08551fce02c67b85d9d8", "size": 39880},
-    "starhermit.txt": {"sha256": "8b88c3e17003803d24b71471379582c208f53583a2ac926107fbc56ca6a72d7f", "size": 2181}
+    "starhermit.txt": {"sha256": "020e61dae287f8a2f17b813d81653cdadc92bf0c8e5794e267cd8a0ab6e109f3", "size": 2181}
   },
   "excluded": ["LICENSE.md", "coverart.png", "knownissues.md", "node_modules/", "package-lock.json", "package.json", "sfx/manifest.json", "sfx/manifest.md", "spec.md", "test/", "tests/", "tools/", "tsconfig.json"],
   "format": 1
