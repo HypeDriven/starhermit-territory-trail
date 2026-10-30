@@ -1,6 +1,6 @@
 # Territory Trail — Product and Game Specification
 
-**Document status:** running specification of the game as built (StarHermit engine script game, engine 1.28.0, host API minor 30); the design sections keep the original intent.  
+**Document status:** running specification of the game as built (StarHermit engine script game, engine 1.29.0, host API minor 31); the design sections keep the original intent.  
 **Game index:** 94  
 **Genre:** Realtime territory action  
 **Players:** 2–32 players as specified by playlist  
@@ -205,7 +205,7 @@ No module may mutate rules state except through a validated command. Rendering c
 ## 6. StarHermit integration
 
 ### Packaging and launch
-- A StarHermit engine script game: `starhermit.txt` (`engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.28.0`, `engine.minor=30`, capabilities platform, storage, clipboard; `control.*` keys and `engine.gamepad.*` defaults per action; `server=server.js`). Browsers open `index.html`, the loader `npm run package` (`starhermit package --web .`) writes with `starhermit-files.json`; it pins the engine on wiki.starhermit.com. The StarHermit client plays the same package natively.
+- A StarHermit engine script game: `starhermit.txt` (`engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.29.0`, `engine.minor=31`, capabilities platform, storage, clipboard; `control.*` keys and `engine.gamepad.*` defaults per action; `server=server.js`). Browsers open `index.html`, the loader `npm run package` (`starhermit package --web .`) writes with `starhermit-files.json`; it pins the engine on wiki.starhermit.com. The StarHermit client plays the same package natively.
 - Sign-in, the launch token, renewal and the account dialog are the runtime's. A guest sees **Sign in with StarHermit** on the title (`requestSignIn()`); signed in, **Invite a friend** copies the invite link with a confirmation toast. When the session ends, a toast says progress stays on this device.
 
 ### Identity, saves and preferences
