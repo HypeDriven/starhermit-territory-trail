@@ -234,7 +234,7 @@ function updateSparks(dt: number): void {
 function applyEnvironment(): void {
   const detailed = !!look?.detailed;
   if (detailed && !envTex) {
-    try { envTex = new PMREMGenerator(renderer).fromScene(new RoomEnvironment(renderer), 0.04).texture; }
+    try { const pageRoom = new RoomEnvironment(renderer); pageRoom.position.y = 0; /* the page's three r182 (pre-r183) builds the room at the origin */ envTex = new PMREMGenerator(renderer).fromScene(pageRoom, 0.04).texture; }
     catch (e) { console.warn(`environment: ${String(e)}`); envTex = null; }
   }
   scene.environment = detailed ? envTex : null;
