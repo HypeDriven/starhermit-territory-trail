@@ -4,12 +4,11 @@
 // the fixed-step session (js/session.js: command ids, events, Practice undo),
 // the content (js/content.js: five themes, 40 Journey stages, four lessons,
 // the Daily, practice difficulties, challenges), the progress document and
-// the game's options (js/progress.js) and the strings (js/i18n.js).
+// the game's options (js/progress.js).
 import * as rules from "../js/rules.js";
 import * as session from "../js/session.js";
 import * as content from "../js/content.js";
 import * as progress from "../js/progress.js";
-import * as i18n from "../js/i18n.js";
 
 export type Dir = "up" | "down" | "left" | "right";
 export interface Player {
@@ -70,11 +69,3 @@ interface ProgressApi {
   PALETTES: Options["palette"][]; DEFAULT_OPTIONS: Options; OPTION_KEYS: (keyof Options)[]; pickOptions(raw: unknown): Partial<Options>; BROWSER_KEYS: string[];
 }
 export const P = progress as unknown as ProgressApi;
-type Vars = Record<string, string | number>;
-interface I18nApi {
-  t(key: string, vars?: Vars): string; setLocale(tag: string): string; locale(): string;
-  stageName(s: Stage): string; stageGoal(s: Stage): string; lessonTitle(l: Lesson): string; lessonText(l: Lesson): string;
-  difficultyName(d: Difficulty): string; challengeName(c: Challenge): string; challengeGoal(c: Challenge): string;
-  playerName(p: { name: string }): string; endReason(code: string | null): string; rejectReason(code: string | undefined): string; dirName(d: string): string;
-}
-export const L = i18n as unknown as I18nApi;

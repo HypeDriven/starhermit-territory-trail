@@ -3,15 +3,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { STRINGS } from '../js/strings.js';
 import { STAGES, LESSONS, PRACTICE_DIFFICULTIES, CHALLENGES } from '../js/content.js';
-import { stageName, lessonTitle, lessonText, difficultyName, challengeName, challengeGoal, t } from '../js/i18n.js';
 
 const ROOT = new URL('..', import.meta.url);
+const STRINGS = JSON.parse(readFileSync(new URL('assets/strings.json', ROOT), 'utf8'));
 const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'];
 // The engine client (native/*.ts) and the shared modules it shows text from.
 const files = readdirSync(new URL('native/', ROOT)).filter((f) => f.endsWith('.ts')).map((f) => 'native/' + f)
-  .concat(['js/i18n.js', 'js/online.js']);
+  .concat(['js/online.js']);
 const code = files.map((f) => readFileSync(new URL(f, ROOT), 'utf8')).join('\n');
 
 const used = new Set();
@@ -39,14 +38,14 @@ for (const loc of LOCALES) {
     for (const k of used) if (!sh.has(k)) assert.equal(vars(STRINGS[loc][k]), vars(STRINGS['en-US'][k]), `${loc}.${k}`);
   });
 }
-test('content names resolve through i18n', () => {
-  assert.equal(stageName(STAGES[0]), 'First Steps');
-  assert.equal(lessonTitle(LESSONS[1]), 'Claim land');
-  assert.ok(lessonText(LESSONS[3]).startsWith('Cross'));
-  assert.deepEqual(PRACTICE_DIFFICULTIES.map(difficultyName), ['Calm', 'Steady', 'Fierce']);
-  assert.deepEqual(CHALLENGES.map(challengeName), ['Sprinter', 'Landgrab', 'Hunter']);
-  assert.equal(challengeGoal(CHALLENGES[2]), 'Eliminate every rival before the clock runs out.');
-  assert.equal(t('rivalsSize', { n: 2, w: 28, h: 28 }), '2 rivals · 28×28');
+test('content names resolve in the tables', () => {
+  const en = STRINGS['en-US'];
+  assert.equal(en['stage' + STAGES[0].index], 'First Steps');
+  assert.equal(en.lesson2Title, 'Claim land');
+  assert.ok(en.lesson4Text.startsWith('Cross'));
+  assert.deepEqual(PRACTICE_DIFFICULTIES.map((d) => en['diff' + d.id[0].toUpperCase() + d.id.slice(1)]), ['Calm', 'Steady', 'Fierce']);
+  assert.deepEqual(CHALLENGES.map((c) => { const k = c.id.replace('challenge-', ''); return en['ch' + k[0].toUpperCase() + k.slice(1)]; }), ['Sprinter', 'Landgrab', 'Hunter']);
+  assert.equal(en.chHunterGoal, 'Eliminate every rival before the clock runs out.');
 });
 test('non-English locales are translated', () => {
   for (const loc of LOCALES.filter((l) => !l.startsWith('en'))) {

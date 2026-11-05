@@ -20,8 +20,8 @@
 // `new RoomEnvironment(renderer)` here) prefiltered with sigma 0.04 as
 // scene.environment at environmentIntensity 0.32, detailed tiers only. The
 // composer (half floats → GTAO → bloom at threshold 0.88 → the colour grade
-// and vignette before OutputPass, i.e. in linear light → FXAA / SMAA, or the
-// canvas MSAA on Low) is the runtime's renderer.ao / bloom / grade /
+// and vignette before OutputPass, i.e. in linear light → the level's
+// anti-aliasing) is the runtime's renderer.ao / bloom / grade /
 // antialias. The trail material's onBeforeCompile (emissive += base colour ×
 // 0.7) is a surface hook. The grain textures are baked PNGs
 // (tools/bake-grain.mjs). The old canvas sat between the status bar and the
@@ -562,11 +562,12 @@ export function applyLook(next: Look): void {
   key.castShadow = next.shadows > 0;
   if (next.shadows > 0) key.shadow.mapSize = next.shadows;
   // high threshold: only beacons, glowing trails and sparks bloom
-  renderer.bloom = next.bloom ? { strength: 0.5, radius: 0.4, threshold: 0.88, resolution: next.budget.bloomRes } : null;
-  renderer.ao = next.ao === "off" ? null : {
-    blendIntensity: 0.7, radius: 0.6, distanceExponent: 1.4, thickness: 1.0, scale: 1.0, samples: next.ao === "high" ? 16 : 8,
-    resolution: next.budget.aoRes,
-    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8 },
+  renderer.bloom = next.bloom === null ? null : { strength: 0.5, radius: 0.4, threshold: 0.88, resolution: next.bloom };
+  const full = !!next.ao && next.ao.resolution >= 1; // the engine's "high": full-resolution AO
+  renderer.ao = !next.ao ? null : {
+    blendIntensity: 0.7, radius: 0.6, distanceExponent: 1.4, thickness: 1.0, scale: 1.0, samples: next.ao.samples,
+    resolution: next.ao.resolution,
+    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: full ? 6 : 4, rings: 2, samples: next.ao.denoiseSamples },
   };
   // GradeShader before OutputPass (linear light): a 0.22 S-curve, saturation 1.1, cool shadows / warm highlights by a
   // smoothstep of luma 0.25–0.85, a 0.26 vignette from 0.38 to 0.9

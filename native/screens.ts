@@ -16,8 +16,8 @@ import { frame, openMenu } from "starhermit:engine";
 import { primaryPointer, requestRebind } from "starhermit:input";
 import * as draw from "starhermit:draw";
 import * as ui from "starhermit:ui";
-import { C, L, P, type Challenge, type Difficulty, type Lesson, type Stage } from "./game.ts";
-import { S, T } from "./i18n.ts";
+import { C, P, type Challenge, type Difficulty, type Lesson, type Stage } from "./game.ts";
+import { L, S, T } from "./i18n.ts";
 import * as platform from "./platform.ts";
 import { token } from "./style.ts";
 import {
@@ -30,11 +30,9 @@ import {
 // ------------------------------------------------------------------ layout
 interface Layout { lw: number; lh: number; sc: number; ox: number; oy: number; wide: boolean; narrow: boolean; short: boolean }
 function layoutNow(): Layout {
-  const f = frame();
-  const sc = ui.preferences().scale;
-  const sa = f.safeArea;
-  const lw = Math.max(1, (f.width - sa.left - sa.right) / sc), lh = Math.max(1, (f.height - sa.top - sa.bottom) / sc);
-  return { lw, lh, sc, ox: sa.left, oy: sa.top, wide: lw >= 1024, narrow: lw <= 480, short: lh <= 500 && lw > lh };
+  const v = ui.viewport!();
+  const lw = Math.max(1, v.width), lh = Math.max(1, v.height);
+  return { lw, lh, sc: v.scale, ox: v.x, oy: v.y, wide: lw >= 1024, narrow: lw <= 480, short: lh <= 500 && lw > lh };
 }
 const lastSize = new Map<string, ui.Rect>();
 function tw(text: string, style: string, kind?: "button" | "heading"): number {
@@ -48,12 +46,11 @@ function para(text: string, width: number, cls = "text", id?: string): void {
   if (tw(text, cls) <= width) u.label(text);
   else u.paragraph(text, Math.max(20, width));
 }
-/** The text cut with an ellipsis to fit `width` (status-title: text-overflow ellipsis). */
-function ellipsize(text: string, cls: string, width: number): string {
-  if (tw(text, cls) <= width) return text;
-  let s = text;
-  while (s.length > 1 && tw(s + "…", cls) > width) s = s.slice(0, -1);
-  return s.trimEnd() + "…";
+/** A label cut with an ellipsis to fit `width` (status-title: text-overflow ellipsis); the full text stays its accessible name. */
+function cutLabel(text: string, cls: string, width: number, id?: string): void {
+  let u = ui.style(cls, { width: Math.min(tw(text, cls) + 1, width), text: { overflow: "ellipsis" } });
+  if (id) u = u.id(id);
+  u.label(text);
 }
 interface Btn {
   id: string; text: string; style?: string; act: () => void; disabled?: boolean; name?: string; sub?: string; width?: number; height?: number;
@@ -85,18 +82,7 @@ function button(b: Btn): void {
 }
 /** Buttons at their own widths in rows that wrap at `width` (.row flex-wrap). */
 function flow(label: string, list: Btn[], width: number, gap = 9.6, justify: "start" | "center" | "end" = "start"): void {
-  const rows: Btn[][] = [[]];
-  let used = 0;
-  const bw = (b: Btn): number => Math.min(width, b.width ?? btnWidth(b));
-  for (const b of list) {
-    const w = bw(b);
-    if (rows[rows.length - 1]!.length && used + gap + w > width) { rows.push([]); used = 0; }
-    used += (rows[rows.length - 1]!.length ? gap : 0) + w;
-    rows[rows.length - 1]!.push(b);
-  }
-  ui.column(label, () => {
-    rows.forEach((row, ri) => ui.row(`${label}-r${ri}`, () => { for (const b of row) button({ ...b, width: bw(b) }); }, { spacing: gap, width, justify, align: "center" }));
-  }, { spacing: gap, width });
+  ui.row(label, () => { for (const b of list) button({ ...b, width: Math.min(width, b.width ?? btnWidth(b)) }); }, { wrap: true, width, gap, justify, align: "center" });
 }
 /** A box over a logical rectangle drawn by a placed role-none widget. */
 function paint(id: string, x: number, y: number, w: number, h: number, cls: string): void {
@@ -131,7 +117,6 @@ export function drawScreens(): void {
   if (app.screen !== "none") screen(L0, pf);
   if (app.overlay) overlayScreen(L0, pf);
   if (!L0.wide && app.drawer) drawer(L0);
-  toastLine(L0);
   if (app.focusNext) {
     const age = f.frame - app.openedFrame;
     if (age >= 1) ui.setFocus(app.focusNext);
@@ -164,9 +149,9 @@ function statusBar(L0: Layout): number {
   ui.place("bar", { anchor: "top-start", x: padX, y: padY }, () => {
     ui.row("bar-row", () => {
       if (!L0.wide) icon("rail-toggle-left", "☰", T("openProgress"), () => { app.drawer = "left"; });
-      ui.style("status-title").id("status-title").label(ellipsize("Territory Trail", "status-title", titleW));
-      if (mW > 20) ui.row("status-mode", () => ui.style("badge-text").id("status-mode-text").label(ellipsize(mode, "badge-text", mW - 14)), { style: "badge" });
-      if (wW > 20) ui.row("status-player", () => ui.style("badge-text").label(ellipsize(who, "badge-text", wW - 14)), { style: "badge" });
+      cutLabel("Territory Trail", "status-title", titleW, "status-title");
+      if (mW > 20) ui.row("status-mode", () => cutLabel(mode, "badge-text", mW - 14, "status-mode-text"), { style: "badge" });
+      if (wW > 20) ui.row("status-player", () => cutLabel(who, "badge-text", wW - 14), { style: "badge" });
       ui.spacer();
       if (clock) ui.style("muted").id("status-clock").label(clock);
       icon("btn-help", "?", T("help"), () => openOverlay("help"));
@@ -197,7 +182,7 @@ function railBody(side: "left" | "right", w: number): void {
         const name = p === me ? T("youSuffix", { name: L.playerName(p) }) : L.playerName(p);
         const stat = T("railCells", { n: p.area }) + (p.alive ? "" : T("railOut"));
         const sw = tw(stat, "text");
-        ui.style("text").label(ellipsize(name, "text", Math.max(30, iw - sw - 8)));
+        cutLabel(name, "text", Math.max(30, iw - sw - 8));
         ui.spacer();
         ui.style("text").label(stat);
       }, { style: "score-line", width: iw, align: "center" }));
@@ -438,7 +423,7 @@ function scoreLine(id: string, name: string, calc: string, value: string, w: num
   ui.row(id, () => {
     const vw = tw(value, "td-num");
     const cw = calc ? tw(calc, "td-muted") : 0;
-    ui.style("td").label(ellipsize(name, "td", Math.max(30, w * (calc ? 0.42 : 1) - vw - 12)));
+    cutLabel(name, "td", Math.max(30, w * (calc ? 0.42 : 1) - vw - 12));
     ui.spacer();
     if (calc) { ui.style("td-muted").label(calc); ui.spacer(); }
     ui.style("td-num").label(value);
@@ -559,24 +544,12 @@ function hostedPanel(w: number): void {
 }
 function expiredPanel(w: number): void {
   const terms = app.expired === "terms";
-  para(S(terms ? "termsTitle" : "expiredTitle"), w, "h2", "expired-h");
-  para(S(terms ? "termsBody" : "expiredBody"), w, "muted", "expired-body");
+  para(T(terms ? "termsTitle" : "expiredTitle"), w, "h2", "expired-h");
+  para(T(terms ? "termsBody" : "expiredBody"), w, "muted", "expired-body");
   flow("expired-row", [
-    { id: "btn-relaunch", text: S("relaunch"), style: "btn-primary", act: relaunch },
-    { id: "btn-expired-local", text: S("playLocal"), act: goHome },
+    { id: "btn-relaunch", text: T("relaunch"), style: "btn-primary", act: relaunch },
+    { id: "btn-expired-local", text: T("playLocal"), act: goHome },
   ], w);
 }
 
-// ------------------------------------------------------------------ #sh-toast
-function toastLine(L0: Layout): void {
-  const t = app.toast;
-  if (!t) return;
-  const max = Math.min(L0.lw * 0.92, 34 * 16);
-  const w = Math.min(max, tw(t.text, "toast-text") + 36);
-  const prev = lastSize.get("toast");
-  const h = prev ? prev.height / L0.sc : 44;
-  ui.place("toast", { anchor: "top-start", x: (L0.lw - w) / 2, y: L0.lh - 16 - h }, () => {
-    lastSize.set("toast", ui.column("toast-box", () => para(t.text, w - 36, "toast-text", "toast-text"), { style: "toast", width: w }));
-  });
-}
 // the pause screen's Escape and the overlays' Escape are handled in main.ts (the pause action)

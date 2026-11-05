@@ -135,7 +135,7 @@ The subject is the active playfield at near-tabletop to room scale, framed so st
 
 | Level | Shadows | Post | Materials | Bevel / pawn segments | Grain | Motes | Sparks per claimed cell |
 |---|---|---|---|---|---|---|---|
-| Low | off | none (MSAA) | Lambert, plain boxes, grid lines | — / 12 | — | off (static) | — (ring pulse only) |
+| Low | off | none (no anti-aliasing) | Lambert, plain boxes, grid lines | — / 12 | — | off (static) | — (ring pulse only) |
 | Balanced | 1024² | bloom (half res), grade, FXAA | Standard | 1 / 20 | 128 px | 90 | 3 |
 | High | 2048² | GTAO (half res), bloom, grade, SMAA | Physical (clear-coated tiles and pawns) | 2 / 32 | 128 px | 140 | 3 |
 | Ultra | 4096² | GTAO 16 samples (full res), bloom, grade, MSAA | Physical | 3 / 48 | 256 px | 220 | 4 |
@@ -274,7 +274,7 @@ This document does **not** authorize implementation, asset production, monetizat
 ## 11. The engine client as built
 
 ### Files
-- `js/rules.js`, `js/session.js`, `js/content.js` — the browser build's rules (8 ticks a second), fixed-step session and content, unchanged; `js/strings.js`, `js/i18n.js`, `js/sh-i18n.js` — strings; `js/progress.js` — the progress document and options; `js/online.js` — hosted rooms (lobby and round clients).
+- `js/rules.js`, `js/session.js`, `js/content.js` — the browser build's rules (8 ticks a second), fixed-step session and content, unchanged; `assets/strings.json` — strings; `js/progress.js` — the progress document and options; `js/online.js` — hosted rooms (lobby and round clients).
 - `native/main.ts` — the flow, modes, steering, round end, hosted play, lifecycle; `native/screens.ts` — the UI; `native/render.ts` — the board; `native/audio.ts`, `native/platform.ts`, `native/quality.ts`, `native/style.ts` (CSS in `tools/ui-style.css` → `assets/ui-style.json` by `npm run css`), `native/i18n.ts`, `native/game.ts` (typed facade).
 - `server.js` — the one server script, built by `npm run server` from `tools/server-head.js`, `js/rules.js` and `tools/server-body.js`.
 

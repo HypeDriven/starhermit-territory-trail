@@ -16,13 +16,13 @@
 // Time is the runtime's fixed steps (60 a second): the session's 8-tick
 // clock, the countdown, the attract board and the toasts run on a clock
 // advanced 1000/60 ms per fixed step, so rounds replay exactly.
-import { clipboard, frame, onFixedUpdate, onPreferencesChange, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
+import { afterRender, clipboard, frame, levelSettings, onFixedUpdate, onPreferencesChange, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
 import { bindings, onAction, onPointerButton, onTouch } from "starhermit:input";
 import * as ui from "starhermit:ui";
 import { onSessionEnded, requestSignIn } from "starhermit:platform";
-import { C, L, P, R, SessionClass, TICK_MS, type Challenge, type Config, type Difficulty, type Dir, type Lesson, type PlayerDef, type Session, type Stage, type State, type Theme } from "./game.ts";
+import { C, P, R, SessionClass, TICK_MS, type Challenge, type Config, type Difficulty, type Dir, type Lesson, type PlayerDef, type Session, type Stage, type State, type Theme } from "./game.ts";
 import * as audio from "./audio.ts";
-import { S, T } from "./i18n.ts";
+import { L, S, T } from "./i18n.ts";
 import * as platform from "./platform.ts";
 import { lookFor } from "./quality.ts";
 import * as render from "./render.ts";
@@ -76,7 +76,6 @@ export const app = {
   mirror: "",
   lesson: null as Lesson | null,
   lessonStats: { moves: 0, claims: 0, eliminations: 0 },
-  toast: null as { text: string; until: number } | null,
   attract: null as { state: State; last: number; steps: number } | null,
 };
 let clockMs = 0;
@@ -92,10 +91,9 @@ function flushAnnouncements(): void {
   const text = spoken.splice(0).slice(-3).join(" ").slice(0, 400);
   try { ui.announce(text); } catch { /* busy */ }
 }
-export function toast(text: string, ms = 2600): void { app.toast = { text, until: clockMs + ms }; announce(text); }
-const pending: (() => void)[] = [];
+export function toast(text: string, ms = 2600): void { ui.toast!(text, { duration: ms / 1000, style: ["toast", "toast-text"], dismissible: false }); }
 /** A widget's press, run once the frame's UI is built. */
-export function later(fn: () => void): void { pending.push(fn); }
+export function later(fn: () => void): void { afterRender(fn); }
 /** Every button press acknowledges with the ui clip (the delegated click listener). */
 export function click(fn: () => void): () => void { return () => { audio.play("ui"); fn(); }; }
 
@@ -343,8 +341,8 @@ export function resultsHeadline(r: Results): string {
 export function resultsLbLine(): string | null {
   const lb = app.results?.lb;
   if (!lb) return null;
-  if (lb === "posting") return S("lbPosting");
-  return !lb.posted ? S("lbNotPosted") : lb.rank ? S("lbRank", { rank: lb.rank }) : S("lbPosted");
+  if (lb === "posting") return S("leaderboardPosting");
+  return !lb.posted ? S("leaderboardNotPosted") : lb.rank ? S("leaderboardRank", { rank: lb.rank }) : S("leaderboardPosted");
 }
 
 // ------------------------------------------------------------------ steering
@@ -671,7 +669,7 @@ export function relaunch(): void { void requestSignIn().catch(() => toast(S("sig
 export function invite(): void {
   const link = platform.inviteLink();
   if (!link) return;
-  try { clipboard.writeText(link); toast(S("copied")); } catch { toast(S("copyFail", { url: link }), 6000); }
+  try { clipboard.writeText(link); toast(S("inviteCopied")); } catch { toast(`${S("inviteFailed")}: ${link}`, 6000); }
 }
 
 // ------------------------------------------------------------------ the clock
@@ -689,11 +687,10 @@ onFixedUpdate(() => {
 // ------------------------------------------------------------------ boot and lifecycle
 let lookKey = "";
 function applyLook(): void {
-  const f = frame();
-  const k = `${f.quality}:${f.levelIndex}`;
-  if (k === lookKey) return;
-  lookKey = k;
-  render.applyLook(lookFor(f.quality, f.levelIndex));
+  const level = frame().level;
+  if (level === lookKey) return;
+  lookKey = level;
+  render.applyLook(lookFor(levelSettings(level)));
 }
 onStart(() => {
   setFixedRate(60);
@@ -736,22 +733,23 @@ onUpdate((dt) => {
   applyTokens(ui.preferences().highContrast);
   audio.update();
   app.hosted?.match?.update();
-  if (app.toast && app.toast.until < clockMs) app.toast = null;
 });
 onRender(() => {
   const wasActive = inRound();
   app.clock = clockText();
   drawScreens();
-  for (const fn of pending.splice(0)) fn();
-  pointerInput(wasActive);
-  const f = frame();
-  render.frame(frameDt, f.width, f.height, field);
-  const st = viewState();
-  if (st) {
-    let alpha = 1;
-    if (app.hosted?.match) alpha = Math.min(1, (clockMs - app.hosted.snapAt) / 125);
-    else if (app.session && !app.session.paused && app.phase === "active") alpha = Math.min(1, app.session.accumulator / TICK_MS);
-    render.update(st, alpha, pendingClaims.splice(0));
-  } else pendingClaims.length = 0;
-  flushAnnouncements();
+  // queued after this frame's presses (later), so they act on this frame's scene
+  afterRender(() => {
+    pointerInput(wasActive);
+    const f = frame();
+    render.frame(frameDt, f.width, f.height, field);
+    const st = viewState();
+    if (st) {
+      let alpha = 1;
+      if (app.hosted?.match) alpha = Math.min(1, (clockMs - app.hosted.snapAt) / 125);
+      else if (app.session && !app.session.paused && app.phase === "active") alpha = Math.min(1, app.session.accumulator / TICK_MS);
+      render.update(st, alpha, pendingClaims.splice(0));
+    } else pendingClaims.length = 0;
+    flushAnnouncements();
+  });
 });

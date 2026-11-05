@@ -1,0 +1,33 @@
+# The Practice "Steady" round (two rivals, 28×28) with the player's marker
+# looping and claiming land, for tools/engine-tier-bench.mjs.
+# viewport 1280x800@1
+until 600 Territory Trail
+frames 30
+click =Choose a mode
+until 300 Unranked, undo allowed
+frames 10
+click Practice. Unranked, undo allowed
+until 300 Unranked practice with undo
+frames 10
+click Steady. 2 rivals
+until 300 Practice (Steady)
+frames 200
+frames 120
+measure start
+key ArrowUp 1
+frames 75
+key ArrowLeft 1
+frames 75
+key ArrowDown 1
+frames 75
+key ArrowRight 1
+frames 75
+key ArrowUp 1
+frames 75
+key ArrowLeft 1
+frames 75
+key ArrowDown 1
+frames 75
+key ArrowRight 1
+frames 75
+measure stop
