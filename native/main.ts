@@ -1,3 +1,4 @@
+import { withLanguageRender as __l10nRender } from "./l10n/menu.ts";
 // Territory Trail on the StarHermit engine: the entry module (starhermit.txt
 // engine.entry), played natively by the StarHermit client and in browsers by
 // the engine's web runtime. The rules (js/rules.js), the fixed-step session
@@ -734,7 +735,7 @@ onUpdate((dt) => {
   audio.update();
   app.hosted?.match?.update();
 });
-onRender(() => {
+onRender(__l10nRender(() => {
   const wasActive = inRound();
   app.clock = clockText();
   drawScreens();
@@ -752,4 +753,8 @@ onRender(() => {
     } else pendingClaims.length = 0;
     flushAnnouncements();
   });
-});
+}));
+
+// localization-runtime:menu
+import { installLanguageMenu as __installLanguageMenu } from "./l10n/menu.ts";
+__installLanguageMenu(false);

@@ -1,3 +1,7 @@
+import { localizedStyle as __l10nStyle } from "./l10n/font.ts";
+import { localizedDrawOptions as __l10nDrawOptions } from "./l10n/font.ts";
+// localization-runtime:attached
+import { openLocalizedOptions as __l10nOptions } from "./l10n/menu.ts";
 // The browser build's DOM shell (js/ui.js + index.html) as starhermit:ui,
 // built every frame over the board: the status bar (rail toggles on compact
 // windows, the title, the mode badge, the player and cloud line, the time
@@ -12,7 +16,21 @@
 // layouts picked by the window's logical size (< 1024 px: drawers; ≤ 480 px:
 // compact bar, no clock; ≤ 500 px tall landscape: a lower bar). The
 // playfield rectangle goes to main.ts (field → render.ts).
-import { frame, openMenu } from "starhermit:engine";
+// The browser build's DOM shell (js/ui.js + index.html) as starhermit:ui,
+// built every frame over the board: the status bar (rail toggles on compact
+// windows, the title, the mode badge, the player and cloud line, the time
+// left, Help and Settings), the progress rail (left) and the status rail
+// (right) — side panels from 1024 logical px, drawers below —, the HUD over
+// the playfield (the objective with Pause in its own column, the danger
+// banner beneath, Undo in Practice and Camera at the bottom, the touch pad on
+// touch screens), the board mirror (a named target over the playfield), the
+// toast and every screen (title over the self-playing board, modes, setup,
+// countdown, pause, results, hosted play, session expired) inside the
+// playfield, with Settings and Help over them. The old media queries are
+// layouts picked by the window's logical size (< 1024 px: drawers; ≤ 480 px:
+// compact bar, no clock; ≤ 500 px tall landscape: a lower bar). The
+// playfield rectangle goes to main.ts (field → render.ts).
+import { frame } from "starhermit:engine";
 import { primaryPointer, requestRebind } from "starhermit:input";
 import * as draw from "starhermit:draw";
 import * as ui from "starhermit:ui";
@@ -41,14 +59,14 @@ function tw(text: string, style: string, kind?: "button" | "heading"): number {
 /** Text up to `width` wide: one label when it fits, else a paragraph. */
 function para(text: string, width: number, cls = "text", id?: string): void {
   if (!text) return;
-  let u = ui.style(cls);
+  let u = ui.style(__l10nStyle(cls));
   if (id) u = u.id(id);
   if (tw(text, cls) <= width) u.label(text);
   else u.paragraph(text, Math.max(20, width));
 }
 /** A label cut with an ellipsis to fit `width` (status-title: text-overflow ellipsis); the full text stays its accessible name. */
 function cutLabel(text: string, cls: string, width: number, id?: string): void {
-  let u = ui.style(cls, { width: Math.min(tw(text, cls) + 1, width), text: { overflow: "ellipsis" } });
+  let u = ui.style(__l10nStyle(cls), __l10nStyle({ width: Math.min(tw(text, cls) + 1, width), text: { overflow: "ellipsis" } }));
   if (id) u = u.id(id);
   u.label(text);
 }
@@ -73,12 +91,12 @@ function button(b: Btn): void {
       if (sub) para(sub, inner, "btn-label-sub");
     };
   } else if (b.width != null && btnWidth(b) > b.width) {
-    opts.content = () => { ui.style(ink ? "wrap-ink" : "wrap").paragraph(b.text, Math.max(20, inner)); };
-  } else if (b.name && b.name !== b.text) opts.content = () => { ui.style(ink ? "wrap-ink" : "btn-label").label(b.text); };
+    opts.content = () => { ui.style(__l10nStyle(ink ? "wrap-ink" : "wrap")).paragraph(b.text, Math.max(20, inner)); };
+  } else if (b.name && b.name !== b.text) opts.content = () => { ui.style(__l10nStyle(ink ? "wrap-ink" : "btn-label")).label(b.text); };
   const s: ui.Style = {};
   if (b.width != null) s.width = b.width;
   if (b.height != null) s.height = b.height;
-  if (ui.style(style, s).id(b.id).button(b.name ?? (b.sub ? `${b.text}. ${b.sub}` : b.text), opts) && fresh()) later(click(b.act));
+  if (ui.style(__l10nStyle(style), __l10nStyle(s)).id(b.id).button(b.name ?? (b.sub ? `${b.text}. ${b.sub}` : b.text), opts) && fresh()) later(click(b.act));
 }
 /** Buttons at their own widths in rows that wrap at `width` (.row flex-wrap). */
 function flow(label: string, list: Btn[], width: number, gap = 9.6, justify: "start" | "center" | "end" = "start"): void {
@@ -87,7 +105,7 @@ function flow(label: string, list: Btn[], width: number, gap = 9.6, justify: "st
 /** A box over a logical rectangle drawn by a placed role-none widget. */
 function paint(id: string, x: number, y: number, w: number, h: number, cls: string): void {
   if (w <= 0 || h <= 0) return;
-  ui.place(id, { anchor: "top-start", x, y }, () => { ui.style(cls).widget("", { role: "none", size: { width: w, height: h } }); });
+  ui.place(id, { anchor: "top-start", x, y }, () => { ui.style(__l10nStyle(cls)).widget("", { role: "none", size: { width: w, height: h } }); });
 }
 function msgText(m: Msg): string {
   if (!m) return "";
@@ -136,7 +154,7 @@ function statusBar(L0: Layout): number {
   const clock = !L0.narrow ? app.clock : "";
   const btnH = L0.short ? 36 : 44;
   const icon = (id: string, glyph: string, name: string, act: () => void): void => {
-    if (ui.style("btn", { width: 44, minHeight: btnH, height: btnH, padding: 0 }).id(id).button(name, { content: () => ui.style("btn-label").label(glyph) }) && fresh()) later(click(act));
+    if (ui.style(__l10nStyle("btn"), __l10nStyle({ width: 44, minHeight: btnH, height: btnH, padding: 0 })).id(id).button(name, { content: () => ui.style(__l10nStyle("btn-label")).label(glyph) }) && fresh()) later(click(act));
   };
   const nIcons = 2 + (L0.wide ? 0 : 2);
   let free = inner - nIcons * 44 - (nIcons + 1) * gap - (clock ? tw(clock, "muted") + gap : 0);
@@ -153,7 +171,7 @@ function statusBar(L0: Layout): number {
       if (mW > 20) ui.row("status-mode", () => cutLabel(mode, "badge-text", mW - 14, "status-mode-text"), { style: "badge" });
       if (wW > 20) ui.row("status-player", () => cutLabel(who, "badge-text", wW - 14), { style: "badge" });
       ui.spacer();
-      if (clock) ui.style("muted").id("status-clock").label(clock);
+      if (clock) ui.style(__l10nStyle("muted")).id("status-clock").label(clock);
       icon("btn-help", "?", T("help"), () => openOverlay("help"));
       icon("btn-settings", "⚙", T("settings"), () => openOverlay("settings"));
       if (!L0.wide) icon("rail-toggle-right", "≡", T("openStatus"), () => { app.drawer = "right"; });
@@ -184,7 +202,7 @@ function railBody(side: "left" | "right", w: number): void {
         const sw = tw(stat, "text");
         cutLabel(name, "text", Math.max(30, iw - sw - 8));
         ui.spacer();
-        ui.style("text").label(stat);
+        ui.style(__l10nStyle("text")).label(stat);
       }, { style: "score-line", width: iw, align: "center" }));
       para(T("railTick", { tick: st.tick, max: st.maxTicks }), iw, "muted", "rail-tick");
     }
@@ -205,7 +223,7 @@ function drawer(L0: Layout): void {
   // #drawer-backdrop: a tap outside the drawer closes it
   const sx = side === "left" ? w : 0;
   ui.place("drawer-scrim", { anchor: "top-start", x: sx, y: 0 }, () => {
-    const r = ui.style("drawer-scrim").widget(T("close"), { role: "button", size: { width: L0.lw - w, height: L0.lh } });
+    const r = ui.style(__l10nStyle("drawer-scrim")).widget(T("close"), { role: "button", size: { width: L0.lw - w, height: L0.lh } });
     if (r.activated && fresh()) later(() => { app.drawer = null; });
   });
   paint("drawer-bg", x, 0, w, L0.lh, "rail");
@@ -232,7 +250,7 @@ function hud(L0: Layout, pf: Box): void {
     ui.column("hud-stack", () => {
       ui.row("hud-top-row", () => {
         ui.column("objective", () => para(objective, objW - 32, "objective-text", "objective-text"), { style: "objective", width: objW });
-        if (ui.style("btn", { width: pauseW, minHeight: 44, height: 44, padding: 0 }).id("btn-pause").button(T("pauseGame"), {
+        if (ui.style(__l10nStyle("btn"), __l10nStyle({ width: pauseW, minHeight: 44, height: 44, padding: 0 })).id("btn-pause").button(T("pauseGame"), {
           disabled: app.phase !== "active", content: () => ui.widget("", { role: "none", size: { width: 16, height: 16 }, draw: (r) => {
             const s = frame().scale;
             const c = token("text");
@@ -243,7 +261,7 @@ function hud(L0: Layout, pf: Box): void {
       }, { spacing: gap, align: "center" });
       if (app.exposed && app.phase === "active") {
         ui.row("danger-row", () => {
-          ui.row("danger-banner", () => ui.style("danger-text").id("danger-text").label(T("danger")), { style: "danger" });
+          ui.row("danger-banner", () => ui.style(__l10nStyle("danger-text")).id("danger-text").label(T("danger")), { style: "danger" });
         }, { width: objW + gap + pauseW, justify: "center" });
       }
     }, { spacing: 6.4, align: "center" });
@@ -262,7 +280,7 @@ function hud(L0: Layout, pf: Box): void {
     const x = platform.options.leftHanded ? pf.x + 12.8 : pf.x + pf.w - 12.8 - size;
     const y = pf.y + pf.h - 73.6 - size;
     const padBtn = (dir: "up" | "down" | "left" | "right", glyph: string, nameKey: string): void => {
-      if (ui.style("btn-pad", { width: cell, height: cell }).id(`pad-${dir}`).button(T(nameKey), { content: () => ui.style("btn-label").label(glyph) }) && fresh()) later(() => sendDir(dir));
+      if (ui.style(__l10nStyle("btn-pad"), __l10nStyle({ width: cell, height: cell })).id(`pad-${dir}`).button(T(nameKey), { content: () => ui.style(__l10nStyle("btn-label")).label(glyph) }) && fresh()) later(() => sendDir(dir));
     };
     const gapCell = (k: string): void => { ui.widget("", { role: "none", size: { width: cell, height: cell } }); void k; };
     ui.place("touch-pad", { anchor: "top-start", x, y }, () => {
@@ -308,7 +326,7 @@ function screen(L0: Layout, pf: Box): void {
   switch (s) {
     case "countdown": {
       const n = String(app.countdown);
-      ui.place("countdown", { anchor: "top-start", x: pf.x + (pf.w - tw(n, "countdown")) / 2, y: pf.y + pf.h / 2 - 50 }, () => ui.style("countdown").id("countdown-num").label(n));
+      ui.place("countdown", { anchor: "top-start", x: pf.x + (pf.w - tw(n, "countdown")) / 2, y: pf.y + pf.h / 2 - 50 }, () => ui.style(__l10nStyle("countdown")).id("countdown-num").label(n));
       break;
     }
     case "modes": cardPanel(L0, pf, "modes", modesPanel); break;
@@ -425,8 +443,8 @@ function scoreLine(id: string, name: string, calc: string, value: string, w: num
     const cw = calc ? tw(calc, "td-muted") : 0;
     cutLabel(name, "td", Math.max(30, w * (calc ? 0.42 : 1) - vw - 12));
     ui.spacer();
-    if (calc) { ui.style("td-muted").label(calc); ui.spacer(); }
-    ui.style("td-num").label(value);
+    if (calc) { ui.style(__l10nStyle("td-muted")).label(calc); ui.spacer(); }
+    ui.style(__l10nStyle("td-num")).label(value);
     void cw;
   }, { style: "score-line", width: w, align: "center", spacing: 8 });
 }
@@ -486,7 +504,7 @@ function settingsPanel(w: number): void {
   para(T("settings"), w, "h2", "settings-h");
   para(T("optionsNote"), w, "muted", "options-note");
   flow("set-runtime", [
-    { id: "btn-options", text: T("openOptions"), act: () => openMenu() },
+    { id: "btn-options", text: T("openOptions"), act: () => __l10nOptions() },
     { id: "btn-rebind", text: T("keyBindings"), act: () => requestRebind() },
   ], w);
   const names = P.PALETTES.map((p) => T("pal" + p.charAt(0).toUpperCase() + p.slice(1)));
@@ -513,7 +531,7 @@ function toggleRow(id: string, label: string, on: boolean, w: number, set: (v: b
         const s = st.scale, box = 22 * s, bx = r.x + (r.width - box) / 2, by = r.y + (r.height - box) / 2;
         draw.roundRect(bx, by, box, box, 4, on ? token("accent") : token("panel2"));
         draw.strokeRoundRect(bx, by, box, box, 4, token("edge"), 2);
-        if (on) draw.text("✓", bx + box / 2, by + 1 * s, { size: 17 * s, color: token("ink"), align: "center", weight: "bold" });
+        if (on) draw.text("✓", bx + box / 2, by + 1 * s, __l10nDrawOptions({ size: 17 * s, color: token("ink"), align: "center", weight: "bold" }));
       },
     });
     if (res.activated && fresh()) later(click(() => set(!on)));
