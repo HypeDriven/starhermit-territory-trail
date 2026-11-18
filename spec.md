@@ -1,6 +1,6 @@
 # Territory Trail — Product and Game Specification
 
-**Document status:** running specification of the game as built (StarHermit engine script game, engine 1.39.0, host API minor 39); the design sections keep the original intent.
+**Document status:** running specification of the game as built (StarHermit engine script game, engine 1.44.1, host API minor 44); the design sections keep the original intent.
 **Game index:** 94  
 **Genre:** Realtime territory action  
 **Players:** 2–32 players as specified by playlist  
@@ -199,13 +199,13 @@ No module may mutate rules state except through a validated command. Rendering c
 
 - Show useful progress by asset group; load core rules/UI first and scenic assets lazily. Provide procedural low-detail substitutes if optional assets fail.
 - Cache immutable hashed assets and the last safe local snapshot. Updates activate between rounds, never during one.
-- Recover WebGL context by rebuilding GPU resources from retained CPU descriptors. If 3D is unavailable, present a clear compatibility message and preserve account/session state.
+- Recover the graphics device by rebuilding GPU resources from retained CPU descriptors. If WebGPU is unavailable in a browser, present a clear compatibility message and preserve account/session state.
 - Background tabs reduce rendering to zero or a low heartbeat while preserving required network lifecycle.
 
 ## 6. StarHermit integration
 
 ### Packaging and launch
-- A StarHermit engine script game: `starhermit.txt` (`engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.39.0`, `engine.minor=39`, capabilities platform, storage, clipboard; `control.*` keys and `engine.gamepad.*` defaults per action; `server=server.js`). Browsers open `index.html`, the loader `npm run package` (`starhermit package --web .`) writes with `starhermit-files.json`; it pins the engine on wiki.starhermit.com. The StarHermit client plays the same package natively.
+- A StarHermit engine script game: `starhermit.txt` (`engine.api=1`, `engine.entry=native/main.ts`, `engine.version=1.44.1`, `engine.minor=44`, capabilities platform, storage, clipboard; `control.*` keys and `engine.gamepad.*` defaults per action; `server=server.js`). Browsers open `index.html`, the loader `npm run package` (`starhermit package --web .`) writes with `starhermit-files.json`; it pins the engine on wiki.starhermit.com. The StarHermit client plays the same package natively.
 - Sign-in, the launch token, renewal and the account dialog are the runtime's. A guest sees **Sign in with StarHermit** on the title (`requestSignIn()`); signed in, **Invite a friend** copies the invite link with a confirmation toast. When the session ends, a toast says progress stays on this device.
 
 ### Identity, saves and preferences
@@ -311,3 +311,9 @@ The authored clips (`sfx/*.opus`) play per event on the effects bus (ui press, s
 The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-SG`, `en-HK`, `en-BQ`, `es-CO`, `de-IT`, `fr-IT`, `es-CL`, `es-AR`, `es-EC`, `de-BR`. These reuse the corresponding existing translations in their language family. The runtime can resolve the exact regional tag. Language selection is available from the game’s Options panel or F2 and is saved per player in `ui.language`. Changes apply during play. Additional national, regional and indigenous language packs are only shipped once every English message has a translation with intact placeholders and markup. Complete additional language tables: `ja-JP`, `nl-BE`, `zh-SG`, `ms-SG`, `ta-SG`, `zh-HK`, `yue-HK`, `nl-NL`, `fi-FI`, `sv-FI`, `et-EE`, `id-ID`, `vi-VN`, `da-DE`, `lb-BE`, `ca-FR`, `oc-FR`, `sl-IT`, `fur-IT`, `ca-IT`, `oc-IT`, `ru-FI`, `ca-ES`, `gl-ES`, `ru-EE`, `su-ID`, `km-VN`, `co-FR`, `eu-FR`, `eu-ES`, `bew-ID`.
 
 <!-- regional-localization:end -->
+
+## Engine 1.44.1
+
+Browser play uses the WebGPU-only StarHermit 1.44.1 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+
+The help screen replays through retained native UI while its contents, options, layout and key bindings are unchanged.

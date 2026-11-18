@@ -1,3 +1,4 @@
+import { bindings } from "starhermit:input";
 import { localizedStyle as __l10nStyle } from "./l10n/font.ts";
 import { localizedDrawOptions as __l10nDrawOptions } from "./l10n/font.ts";
 // localization-runtime:attached
@@ -115,7 +116,7 @@ function msgText(m: Msg): string {
 
 // ------------------------------------------------------------------ the frame
 interface Box { x: number; y: number; w: number; h: number }
-export function drawScreens(): void {
+function drawScreensImmediate(): void {
   const L0 = layoutNow();
   const f = frame();
   const barH = statusBar(L0);
@@ -571,3 +572,10 @@ function expiredPanel(w: number): void {
 }
 
 // the pause screen's Escape and the overlays' Escape are handled in main.ts (the pause action)
+
+export function drawScreens(): void {
+  if (!(app.overlay === "help")) { drawScreensImmediate(); return; }
+  const actions = ["up","down","left","right","pause","undo","camera"];
+  const version = JSON.stringify([(app as any).settings ?? (app as any).options ?? {}, (platform as any).options ?? {}, actions.map((action) => bindings(action))]);
+  ui.retain!("help-screen", version, drawScreensImmediate);
+}
