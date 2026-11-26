@@ -45,7 +45,7 @@
     "native/render.ts": {"sha256": "c58299ed5ff54d28815ea9f2b36b6f0606f747ba3dafd8a8f3588059f440b6ea", "size": 31382},
     "native/screens.ts": {"sha256": "7fdff3f15ac9ee33b08f8b994fef9a9a87f4c74200733faa2ecfe9a82fc7e250", "size": 33114},
     "native/style.ts": {"sha256": "6b66723de7e497f1483ef09bd569284b7ef51e6c0e1a8845efa930837ee7c4ec", "size": 2831},
-    "publication.json": {"sha256": "98253ffcaad657dd4a83420449c1460e5d769ab243719904c00dd68696fc1ad8", "size": 4127},
+    "publication.json": {"sha256": "c9d45d55c73562ee4b44f60eea8ec226ff46750113b59581dcb43b4d38e1433a", "size": 4124},
     "server.js": {"sha256": "99cd8c12da3f797c5ef550e33aa415ca30d940815408c4e48c7cbdc9afe6448a", "size": 33590},
     "sfx/claim-burst.opus": {"sha256": "72d658dc433130074b2f34515b85ac0ae80118694fc9f873dc23ed65bef9d908", "size": 21729},
     "sfx/countdown-beep.opus": {"sha256": "a65bd93303217d958bc0c759382ab1e70d85df0ab7d821ea664b90d7d7fd6034", "size": 12466},
