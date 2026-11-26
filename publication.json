@@ -12,7 +12,7 @@
     "metadataSource": "starhermit.txt",
     "createdAt": "2026-09-01T09:42:19.743412+00:00",
     "coverArtSource": "manifest",
-    "coverArtUpdatedAt": "2026-11-26T16:09:49.314014+00:00",
+    "coverArtUpdatedAt": "2026-11-26T22:43:56.634709+00:00",
     "submittedByUserId": "2712e04e-461b-4d23-81ae-e40b429128a8",
     "submittedByUsername": "starhermit",
     "hosting": {
@@ -22,9 +22,9 @@
       "pinnedCommitSha": null,
       "deployedCommitSha": null,
       "deployError": null,
-      "deployedAt": "2026-11-26T16:09:49.285674+00:00",
+      "deployedAt": "2026-11-26T22:43:56.614263+00:00",
       "externalLaunchUrl": null,
-      "engineVersion": "1.50.0",
+      "engineVersion": "1.51.0",
       "deployWarning": null
     },
     "description": "Leave your territory to draw trails, reconnect to claim land, and cut exposed rival trails.",
@@ -36,19 +36,19 @@
     "links": [],
     "isDisabled": false
   },
-  "publishedAt": "2026-11-26T16:09:48.596Z",
-  "sourceCommit": "1bf192eca2f09ef070ab14cb3dd6953c47eaa225",
-  "bytesReceived": 1701980,
-  "archiveSha256": "924ae57a48eb652ea8f3d032c73d17f423b3e5002e3531a86e8ba6493f44803e",
+  "publishedAt": "2026-11-26T22:43:57.055Z",
+  "sourceCommit": "903278064e94384aaa68b4d229892f49f7536940",
+  "bytesReceived": 1701969,
+  "archiveSha256": "4382f2c4eea43ff910d606e6250969cb9d8981e92c531378b3c74f6eba18a5e1",
   "indexSha256": "4682d06bdae070bf29d8132634d795d6724e8a95823f135d619257d0b16b6617",
   "result": {
     "clientPublished": true,
     "serverImageLoaded": false,
     "imageDigest": null,
-    "bytesReceived": 1701980,
+    "bytesReceived": 1701969,
     "mode": "replace",
     "filesRemoved": 0,
-    "engineVersion": "1.50.0",
+    "engineVersion": "1.51.0",
     "deployWarning": null
   },
   "liveVerification": {
